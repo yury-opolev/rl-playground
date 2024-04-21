@@ -12,8 +12,9 @@ class AIAgent(object):
 
         for a in actions:
             game.take_action(a, self.player_token)
-            features = game.extract_features(game.get_opponent_token(self.player_token))
-            v = self.model.get_output(features)
+            features = game.extract_features(self.player_token)
+            v = self.ai_model.get_output(features)
+            v = (1.0 - v) # 'reversing' action value to get worst state for an opponent
             if v > v_best:
                 v_best = v
                 a_best = a

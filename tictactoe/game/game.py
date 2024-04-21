@@ -1,5 +1,6 @@
 import os
 import random
+import numpy as np
 
 class Game:
 
@@ -10,10 +11,35 @@ class Game:
     def __init__(self) -> None:
         self.grid = { (i,j) : Game.EMPTYTOKEN for i in range(Game.COLS) for j in range(Game.ROWS) }
         self.player_tokens = Game.TOKENS
+        self.current_player_token = None
         self.winner_token = None
+
+    def extract_features(self, player_token):
+        features = []
+        for cell in self.grid:
+            cell_features = [0.0] * 2
+            if cell == player_token:
+                cell_features[0] = 1.0
+                cell_features[1] = 0.0
+            elif cell == Game.EMPTYTOKEN:
+                cell_features[0] = 0.0
+                cell_features[1] = 0.0
+            else:
+                cell_features[0] = 0.0
+                cell_features[1] = 1.0
+
+            features += cell_features
+
+        if player_token == self.current_player_token:
+            features += [1., 0.]
+        else:
+            features += [0., 1.]
+
+        return np.array(features).reshape(1, -1)
 
     def play(self, player_agents, draw=False):
         player_num = random.randint(0, 1)
+        self.current_player_token = self.player_tokens[player_num]
         while not self.is_finished():
             player_agent = player_agents[player_num]
             if draw:
@@ -21,8 +47,9 @@ class Game:
                 print('Player "%s" is taking turn...' % (player_agent.player_token))
                 self.draw()
 
-            self.make_move(player_agent, draw=draw)
+            self.make_move(player_agent)
             player_num = (player_num + 1) % 2
+            self.current_player_token = self.player_tokens[player_num]
 
         if draw:
             os.system('clear')
@@ -31,7 +58,7 @@ class Game:
 
         return self.winner_token
 
-    def make_move(self, player_agent, draw=False):
+    def make_move(self, player_agent):
         actions = self.get_actions(player_agent.player_token)
         action = player_agent.get_action(actions, self) if actions else None
 
