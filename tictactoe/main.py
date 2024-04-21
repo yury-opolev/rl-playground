@@ -4,6 +4,7 @@ import tensorflow as tf
 
 from game.game import Game
 from game.agents.human_agent import HumanAgent
+from game.agents.random_agent import RandomAgent
 
 FLAGS = flags.FLAGS
 
@@ -16,7 +17,7 @@ def main(argv):
 
     if FLAGS.mode == 'play':
         game = Game()
-        player_agents = [HumanAgent('x'), HumanAgent('o')]
+        player_agents = [HumanAgent('x'), RandomAgent('o')]
         game.play(player_agents, draw=True)
         pass
 
