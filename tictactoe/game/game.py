@@ -18,7 +18,7 @@ class Game:
             player_agent = player_agents[player_num]
             if draw:
                 os.system('clear')
-                print("Player %s is taking turn..." % (player_agent.player_token))
+                print('Player "%s" is taking turn...' % (player_agent.player_token))
                 self.draw()
 
             self.make_move(player_agent, draw=draw)

@@ -14,7 +14,6 @@ class AIAgent(object):
             game.take_action(a, self.player_token)
             features = game.extract_features(game.get_opponent_token(self.player_token))
             v = self.model.get_output(features)
-            v = (1.0 - v) if self.player_token == game.player_tokens[0] else v
             if v > v_best:
                 v_best = v
                 a_best = a
