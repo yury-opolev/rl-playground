@@ -42,6 +42,10 @@ class Game:
         x, y = action
         self.grid[x,y] = player_token
 
+    def undo_action(self, action, player_token):
+        x, y = action
+        self.grid[x,y] = Game.EMPTYTOKEN
+
     def get_actions(self, player_token):
         possible_actions = set()
         for xi in [0, 1, 2]:
@@ -69,6 +73,11 @@ class Game:
                 return token
 
         return None
+    
+    def get_opponent_token(self, given_token):
+        for token in self.player_tokens:
+            if token != given_token:
+                return token
 
     def draw(self):
         print('  ┌───┬───┬───┐')

@@ -5,5 +5,5 @@ class RandomAgent(object):
         self.player_token = player_token
         self.name = 'Random'
 
-    def get_action(self, moves, game=None):
-        return random.choice(list(moves)) if moves else None
+    def get_action(self, actions, game=None):
+        return random.choice(list(actions)) if actions else None
