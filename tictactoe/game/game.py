@@ -1,3 +1,4 @@
+import platform
 import os
 import random
 import numpy as np
@@ -7,6 +8,12 @@ class Game:
     ROWS, COLS = (3, 3)
     EMPTYTOKEN = ' '
     TOKENS = ['x', 'o']
+
+    def clear_screen():
+        if platform.system() == 'Windows':
+            os.system('cls')
+        else:
+            os.system('clear')
 
     def __init__(self) -> None:
         self.grid = { (i,j) : Game.EMPTYTOKEN for i in range(Game.COLS) for j in range(Game.ROWS) }
@@ -43,7 +50,7 @@ class Game:
         while not self.is_finished():
             player_agent = player_agents[player_num]
             if draw:
-                os.system('clear')
+                Game.clear_screen()
                 print('Player "%s" is taking turn...' % (player_agent.player_token))
                 self.draw()
 
@@ -52,7 +59,7 @@ class Game:
             self.current_player_token = self.player_tokens[player_num]
 
         if draw:
-            os.system('clear')
+            Game.clear_screen()
             print('Game is finished, player "%s" wins!' % (self.winner_token))
             self.draw()
 
