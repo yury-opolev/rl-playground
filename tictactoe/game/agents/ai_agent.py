@@ -1,4 +1,5 @@
 import random
+from game.game import Game
 
 class AIAgent(object):
     def __init__(self, player_token, ai_model):
@@ -12,9 +13,11 @@ class AIAgent(object):
 
         for a in actions:
             game.take_action(a, self.player_token)
-            features = game.extract_features(self.player_token)
+            features = game.extract_features()
             v = self.ai_model.get_output(features)
-            v = (1.0 - v) # 'reversing' action value to get worst state for an opponent
+            if self.player_token != Game.TOKEN_X:
+                v = 1.0 - v
+
             if v > v_best:
                 v_best = v
                 a_best = a

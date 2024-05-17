@@ -7,7 +7,9 @@ class Game:
 
     ROWS, COLS = (3, 3)
     EMPTYTOKEN = ' '
-    TOKENS = ['x', 'o']
+    TOKEN_X = 'x'
+    TOKEN_O = 'o'
+    TOKENS = [TOKEN_X, TOKEN_O]
 
     def clear_screen():
         if platform.system() == 'Windows':
@@ -21,11 +23,11 @@ class Game:
         self.current_player_token = None
         self.winner_token = None
 
-    def extract_features(self, player_token):
+    def extract_features(self):
         features = []
         for cell in self.grid:
             cell_features = [0.0] * 2
-            if cell == player_token:
+            if cell == Game.TOKEN_X:
                 cell_features[0] = 1.0
                 cell_features[1] = 0.0
             elif cell == Game.EMPTYTOKEN:
@@ -37,7 +39,7 @@ class Game:
 
             features += cell_features
 
-        if player_token == self.current_player_token:
+        if Game.TOKEN_X == self.current_player_token:
             features += [1., 0.]
         else:
             features += [0., 1.]
@@ -91,7 +93,12 @@ class Game:
 
     def is_finished(self):
         self.winner_token = self.find_winner()
-        return self.winner_token is not None
+        occupied_cells = 0
+        for i in [0, 1, 2]:
+            for j in [0, 1, 2]:
+                if (self.grid[i,0] != Game.EMPTYTOKEN):
+                    occupied_cells += 1
+        return (self.winner_token is not None) or (occupied_cells == 9)
 
     def find_winner(self):
         for token in self.player_tokens:
