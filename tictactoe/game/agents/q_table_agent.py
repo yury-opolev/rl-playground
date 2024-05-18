@@ -14,8 +14,8 @@ class QTableAgent(object):
 
         for a in actions:
             game.take_action(a, self.player_token)
-            potentional_state = game.extract_qstate()
-            v = self.q_table[potentional_state]
+            potential_state = game.extract_qstate()
+            v = self.q_table[potential_state]
             if self.player_token != Game.TOKEN_X:
                 v = 1.0 - v
 

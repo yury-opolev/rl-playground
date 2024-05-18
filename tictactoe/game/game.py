@@ -75,7 +75,10 @@ class Game:
 
         if draw:
             Game.clear_screen()
-            print('[%s] Game is finished, player "%s" wins!' % (self.extract_qstate(), self.winner_token))
+            if self.winner_token is not None:
+                print('[%s] Game is finished, player "%s" wins!' % (self.extract_qstate(), self.winner_token))
+            else:
+                print('[%s] Game is finished, it is a draw!' % (self.extract_qstate()))
             self.draw()
 
         return self.winner_token
@@ -109,7 +112,7 @@ class Game:
         occupied_cells = 0
         for i in [0, 1, 2]:
             for j in [0, 1, 2]:
-                if (self.grid[i,0] != Game.EMPTYTOKEN):
+                if (self.grid[i,j] != Game.EMPTYTOKEN):
                     occupied_cells += 1
         return (self.winner_token is not None) or (occupied_cells == 9)
 
