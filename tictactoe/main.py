@@ -40,7 +40,7 @@ def main(argv):
     if FLAGS.mode == 'play':
         game = Game()
         #player_agents = [HumanAgent('X'), AIAgent('O', ai_model)]
-        q_model = QTableModel(model_path + 'q_model', restore=True)
+        q_model = QTableModel(model_path + 'q_model_18052024', restore=True)
         player_agents = [HumanAgent('X'), QTableAgent('O', q_model.q_table)]
         game.play(player_agents, draw=True)
         pass
