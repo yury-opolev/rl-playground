@@ -7,7 +7,7 @@ class AIAgent(object):
         self.ai_model = ai_model
         self.name = 'AI'
 
-    def get_action(self, actions, game=None):
+    def get_action(self, actions, game=None, greedy=True):
         v_best = 0
         a_best = None
 

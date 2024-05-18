@@ -4,7 +4,7 @@ class HumanAgent(object):
         self.player_token = player_token
         self.name = 'Human'
 
-    def get_action(self, actions, game=None):
+    def get_action(self, actions, game=None, greedy=True):
         if not actions:
             input("No moves for you...(hit enter)")
             return None

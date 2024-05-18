@@ -12,7 +12,21 @@ class QTableModel(object):
 
         self.q_table = {}
         for element in Game.validBoards():
-            self.q_table[str(element)] = random.uniform(0, 1)
+            if Game.isXWin(element):
+                self.q_table[str(element)] = 1.0
+            elif Game.isOWin(element):
+                self.q_table[str(element)] = 0.0
+            else:
+                self.q_table[str(element)] = 0.5
+            # if Game.isXWin(element):
+            #     self.q_table[str(element) + '|X'] = 1.0
+            #     self.q_table[str(element) + '|O'] = 1.0
+            # elif Game.isOWin(element):
+            #     self.q_table[str(element) + '|X'] = 0.0
+            #     self.q_table[str(element) + '|O'] = 0.0
+            # else:
+            #     self.q_table[str(element) + '|X'] = 0.5
+            #     self.q_table[str(element) + '|O'] = 0.5
 
         if restore:
             self.restore()
@@ -36,7 +50,7 @@ class QTableModel(object):
     def get_output(self, x):
         return self.q_table[x]
 
-    def test(self, episodes=100):
+    def test(self, episodes=200):
         winners = { Game.EMPTYTOKEN: 0, Game.TOKEN_X: 0, Game.TOKEN_O: 0 }
         for episode in range(episodes):
             game = Game()
@@ -49,46 +63,52 @@ class QTableModel(object):
         print(f"Games played: {episodes}, draws: {winners[Game.EMPTYTOKEN]}, 'X' wins: {winners[Game.TOKEN_X]}, 'O' wins: {winners[Game.TOKEN_O]}.")
 
     def train_q_table(self):
-        validation_interval = 1000
-        episodes = 10000
-        learning_rate = 0.001
+        player_agents = [QTableAgent('X', self.q_table), QTableAgent('O', self.q_table)]
+
+        validation_interval = 10000
+        episodes = 1000000
+        learning_rate = 0.01
         for episode in range(episodes):
             if episode != 0 and episode % validation_interval == 0:
                 print(f"Testing after {episode} episodes")
                 self.test(episodes=100)
 
-            player_agents = [QTableAgent('X', self.q_table), QTableAgent('O', self.q_table)]
             game = Game()
 
             player_num = random.randint(0, 1)
-            game.current_player_token = game.player_tokens[player_num]
             player_agent = player_agents[player_num]
+            game.current_player_token = game.player_tokens[player_num]
 
+            # recorded_states = []
             game_step = 0
             while not game.is_finished():
                 observed_state = game.extract_qstate()
+                # recorded_states.append(observed_state)
                 state_value = player_agent.q_table[observed_state]
 
-                game.make_move(player_agent)
+                game.make_move(player_agent, greedy=False)
 
                 player_num = (player_num + 1) % 2
-                game.current_player_token = game.player_tokens[player_num]
                 player_agent = player_agents[player_num]
+                game.current_player_token = game.player_tokens[player_num]
 
                 next_observed_state = game.extract_qstate()
-                if game.is_finished():
-                    if game.winner_token == Game.TOKEN_X:
-                        next_state_value = 1.0
-                    elif game.winner_token == Game.TOKEN_O:
-                        next_state_value = 0.0
-                    else:
-                        next_state_value = 0.5
-                else:
-                    next_state_value = player_agent.q_table[next_observed_state]
+                next_state_value = self.q_table[next_observed_state]
 
-                player_agent.q_table[observed_state] += learning_rate * (next_state_value - state_value)
-
+                adjustment = learning_rate * (next_state_value - state_value)
+                self.q_table[observed_state] = self.q_table[observed_state] + adjustment
                 game_step += 1
+
+            # recorded_states.append(game.extract_qstate())
+
+            # final_recorded_state = recorded_states[-1]
+            # final_value = self.q_table[final_recorded_state]
+            # discount_factor = 0.9
+            # for index in reversed(range(0, len(recorded_states) - 2)):
+            #     recorded_state = recorded_states[index]
+            #     adjustment = discount_factor * learning_rate * (final_value - self.q_table[recorded_state])
+            #     self.q_table[recorded_state] = self.q_table[recorded_state] + adjustment
+            #     discount_factor *= discount_factor
 
         if self.save_on_train:
             self.save()

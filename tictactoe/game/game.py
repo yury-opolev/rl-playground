@@ -57,10 +57,14 @@ class Game:
                 qstate += '.'
             else:
                 qstate += 'O'
+
+        # qstate += '|'
+        # qstate += self.current_player_token
         return qstate
     
     def play(self, player_agents, draw=False):
-        player_num = random.randint(0, 1)
+        # player_num = random.randint(0, 1)
+        player_num = 0
         self.current_player_token = self.player_tokens[player_num]
         while not self.is_finished():
             player_agent = player_agents[player_num]
@@ -83,9 +87,9 @@ class Game:
 
         return self.winner_token
 
-    def make_move(self, player_agent):
+    def make_move(self, player_agent, greedy=True):
         actions = self.get_actions(player_agent.player_token)
-        action = player_agent.get_action(actions, self) if actions else None
+        action = player_agent.get_action(actions, self, greedy) if actions else None
 
         if action:
             self.take_action(action, player_agent.player_token)
@@ -169,7 +173,13 @@ class Game:
         print('    0   1   2  ')
 
     def isWin(board):
-        return any("".join(board[p] for p in axis) in ["XXX","OOO"] for axis in Game.VALIDBOARDS_AXES)
+        return Game.isXWin(board) or Game.isOWin(board)
+
+    def isXWin(board):
+        return any("".join(board[p] for p in axis) in ["XXX"] for axis in Game.VALIDBOARDS_AXES)
+
+    def isOWin(board):
+        return any("".join(board[p] for p in axis) in ["OOO"] for axis in Game.VALIDBOARDS_AXES)
 
     def validBoards(board="."*9,player=None,states=None):
         if player == None:
