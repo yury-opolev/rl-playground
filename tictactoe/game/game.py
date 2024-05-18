@@ -58,13 +58,12 @@ class Game:
             else:
                 qstate += 'O'
 
-        # qstate += '|'
-        # qstate += self.current_player_token
+        qstate += f"|{self.first_player}"
         return qstate
     
     def play(self, player_agents, draw=False):
-        # player_num = random.randint(0, 1)
-        player_num = 0
+        player_num = random.randint(0, 1)
+        self.first_player = self.player_tokens[player_num]
         self.current_player_token = self.player_tokens[player_num]
         while not self.is_finished():
             player_agent = player_agents[player_num]
@@ -181,19 +180,22 @@ class Game:
     def isOWin(board):
         return any("".join(board[p] for p in axis) in ["OOO"] for axis in Game.VALIDBOARDS_AXES)
 
-    def validBoards(board="."*9,player=None,states=None):
+    def validBoards(board="."*9,firstPlayer=None,player=None,states=None):
         if player == None:
-            result  = {board}  # count the empty board
-            result |= Game.validBoards(board,player="X",states=set()) # X goes 1st
-            result |= Game.validBoards(board,player="O",states=set()) # O goes 1st
+            firstPlayer = 'X'
+            result  = {board+'|'+firstPlayer}  # count the empty board
+            result |= Game.validBoards(board,firstPlayer=firstPlayer,player=firstPlayer,states=set()) # X goes 1st
+            firstPlayer = 'O'
+            result |= {board+'|'+firstPlayer}  # count the empty board
+            result |= Game.validBoards(board,firstPlayer=firstPlayer,player=firstPlayer,states=set()) # X goes 1st
             return result
         opponent = "XO"[player=="X"]
         for pos,cell in enumerate(board):
             if cell != ".": continue
             played = board[:pos]+player+board[pos+1:] # simulate move
             if played in states : continue            # skip duplicate states
-            states.add(played)                        # return the new state
+            states.add(played+'|'+firstPlayer)         # return the new state
             if Game.isWin(played): continue                # stop game upon winning 
-            Game.validBoards(played,opponent,states)       # add subsequent moves 
+            Game.validBoards(played,firstPlayer,opponent,states)       # add subsequent moves 
         return states
       

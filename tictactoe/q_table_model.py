@@ -76,6 +76,8 @@ class QTableModel(object):
             game = Game()
 
             player_num = random.randint(0, 1)
+            game.first_player = game.player_tokens[player_num]
+
             player_agent = player_agents[player_num]
             game.current_player_token = game.player_tokens[player_num]
 
