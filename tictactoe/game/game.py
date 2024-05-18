@@ -5,10 +5,12 @@ import numpy as np
 
 class Game:
 
+    VALIDBOARDS_AXES = [(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]
+
     ROWS, COLS = (3, 3)
     EMPTYTOKEN = ' '
-    TOKEN_X = 'x'
-    TOKEN_O = 'o'
+    TOKEN_X = 'X'
+    TOKEN_O = 'O'
     TOKENS = [TOKEN_X, TOKEN_O]
 
     def clear_screen():
@@ -25,12 +27,12 @@ class Game:
 
     def extract_features(self):
         features = []
-        for cell in self.grid:
+        for cellkey in self.grid:
             cell_features = [0.0] * 2
-            if cell == Game.TOKEN_X:
+            if self.grid[cellkey] == Game.TOKEN_X:
                 cell_features[0] = 1.0
                 cell_features[1] = 0.0
-            elif cell == Game.EMPTYTOKEN:
+            elif self.grid[cellkey] == Game.EMPTYTOKEN:
                 cell_features[0] = 0.0
                 cell_features[1] = 0.0
             else:
@@ -46,6 +48,17 @@ class Game:
 
         return np.array(features).reshape(1, -1)
 
+    def extract_qstate(self):
+        qstate = ''
+        for cellkey in self.grid:
+            if self.grid[cellkey] == Game.TOKEN_X:
+                qstate += 'X'
+            elif self.grid[cellkey] == Game.EMPTYTOKEN:
+                qstate += '.'
+            else:
+                qstate += 'O'
+        return qstate
+    
     def play(self, player_agents, draw=False):
         player_num = random.randint(0, 1)
         self.current_player_token = self.player_tokens[player_num]
@@ -53,7 +66,7 @@ class Game:
             player_agent = player_agents[player_num]
             if draw:
                 Game.clear_screen()
-                print('Player "%s" is taking turn...' % (player_agent.player_token))
+                print('[%s] Player "%s" is taking turn...' % (self.extract_qstate(), player_agent.player_token))
                 self.draw()
 
             self.make_move(player_agent)
@@ -62,7 +75,7 @@ class Game:
 
         if draw:
             Game.clear_screen()
-            print('Game is finished, player "%s" wins!' % (self.winner_token))
+            print('[%s] Game is finished, player "%s" wins!' % (self.extract_qstate(), self.winner_token))
             self.draw()
 
         return self.winner_token
@@ -149,6 +162,25 @@ class Game:
         print(' │ ', end='')
         print(self.grid[2,2], end='')
         print(' │')
-
         print('  └───┴───┴───┘')
         print('    0   1   2  ')
+
+    def isWin(board):
+        return any("".join(board[p] for p in axis) in ["XXX","OOO"] for axis in Game.VALIDBOARDS_AXES)
+
+    def validBoards(board="."*9,player=None,states=None):
+        if player == None:
+            result  = {board}  # count the empty board
+            result |= Game.validBoards(board,player="X",states=set()) # X goes 1st
+            result |= Game.validBoards(board,player="O",states=set()) # O goes 1st
+            return result
+        opponent = "XO"[player=="X"]
+        for pos,cell in enumerate(board):
+            if cell != ".": continue
+            played = board[:pos]+player+board[pos+1:] # simulate move
+            if played in states : continue            # skip duplicate states
+            states.add(played)                        # return the new state
+            if Game.isWin(played): continue                # stop game upon winning 
+            Game.validBoards(played,opponent,states)       # add subsequent moves 
+        return states
+      

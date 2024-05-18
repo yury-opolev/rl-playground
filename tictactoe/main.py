@@ -36,7 +36,7 @@ def main(argv):
 
     if FLAGS.mode == 'play':
         game = Game()
-        player_agents = [HumanAgent('x'), AIAgent('o', ai_model)]
+        player_agents = [HumanAgent('X'), AIAgent('O', ai_model)]
         game.play(player_agents, draw=True)
         pass
 

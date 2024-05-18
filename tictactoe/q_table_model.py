@@ -1,52 +1,42 @@
 import random
-import tensorflow as tf
-from keras import layers
-from keras import models
-from keras import initializers
+import pickle
 
 from game.game import Game
-from game.agents.ai_agent import AIAgent
+from game.agents.q_table_agent import QTableAgent
 
-class Model(object):
-    def __init__(self, model_path, summary_path, checkpoint_dir, restore=False):
+class QTableModel(object):
+    def __init__(self, model_path, restore=False):
         self.model_path = model_path
-        self.summary_path = summary_path
-        self.checkpoint_dir = checkpoint_dir
 
-        self.nn_model = models.Sequential([
-            layers.Input(shape=(20,)),
-            layers.Dense(20, activation='relu',
-                         kernel_initializer=initializers.RandomNormal(stddev=0.1),
-                         bias_initializer=initializers.RandomNormal(stddev=0.1)),
-            layers.Dense(20, activation='relu',
-                         kernel_initializer=initializers.RandomNormal(stddev=0.1),
-                         bias_initializer=initializers.RandomNormal(stddev=0.1)),
-            # result is a prediction of probability of winning: 1 - 'X' wins, 0 - 'X' looses
-            layers.Dense(1, activation='sigmoid',
-                         kernel_initializer=initializers.RandomNormal(stddev=0.1),
-                         bias_initializer=initializers.RandomNormal(stddev=0.1))
-        ])
+        self.q_table = {}
+        for element in Game.validBoards():
+            self.q_table[str(element)] = random.uniform(0, 1)
 
         if restore:
             self.restore()
 
+    def save(self):
+        with open(self.model_path, 'wb') as f:
+            pickle.dump(self.q_table, f)
+
     def restore(self):
-        latest_checkpoint_path = tf.train.latest_checkpoint(self.checkpoint_dir)
-        if latest_checkpoint_path:
-            print('Restoring checkpoint: {0}'.format(latest_checkpoint_path))
-            self.nn_model.load_weights(latest_checkpoint_path)
+        with open(self.model_path, 'rb') as f:
+            self.q_table = pickle.load(f)
 
     def get_output(self, x):
-        return self.nn_model(x)
-    
-    def train(self):
+        return self.q_table[x]
+
+    def test(self, episodes=100):
+        pass
+
+    def train_q_table(self):
         validation_interval = 500
         episodes = 5000
         for episode in range(episodes):
             if episode != 0 and episode % validation_interval == 0:
                 self.test(episodes=100)
 
-            player_agents = [AIAgent('X', self), AIAgent('O', self)]
+            player_agents = [QTableAgent('X', self.q_table), QTableAgent('O', self.q_table)]
             game = Game()
 
             player_num = random.randint(0, 1)
@@ -79,4 +69,3 @@ class Model(object):
                 game_step += 1
 
             winner = game.winner()
-
