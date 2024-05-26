@@ -89,22 +89,25 @@ class Model(object):
             recorded_states = []
             while not game.is_finished():
                 observed_state = game.extract_features()
+                observed_state_description = game.extract_qstate()
                 state_value = self.get_output(observed_state)
-                recorded_states.append(copy.deepcopy(observed_state))
+                recorded_states.append((copy.deepcopy(observed_state), observed_state_description, state_value))
 
-                game.make_move(player_agent)
+                game.make_move(player_agent, greedy=False)
 
                 player_num = (player_num + 1) % 2
                 player_agent = player_agents[player_num]
                 game.current_player_token = game.player_tokens[player_num]
 
                 next_observed_state = game.extract_features()
+                next_observed_state_description = game.extract_qstate()
+
                 if (game.is_finished()):
-                    next_state_value = 0.5
+                    next_state_value = tf.Variable([[0.5]], trainable=False)
                     if game.winner_token == Game.TOKEN_X:
-                        next_state_value = 1.0
+                        next_state_value = tf.Variable([[1.0]], trainable=False)
                     elif game.winner_token == Game.TOKEN_O:
-                        next_state_value = 0.0
+                        next_state_value = tf.Variable([[0.0]], trainable=False)
                 else:
                     next_state_value = self.get_output(next_observed_state)
 
@@ -112,11 +115,18 @@ class Model(object):
 
                 game_step += 1
 
-            recorded_states.append(copy.deepcopy(next_observed_state))
+            recorded_states.append((copy.deepcopy(next_observed_state), next_observed_state_description, next_state_value))
+
+            line_to_print = ""
+            for state, description, value in recorded_states:
+                value_single = value[0,0].numpy()
+                line_to_print += f"{description}:{value_single:.8f};"
+            print(line_to_print)
+
             discount_rate = 1.0
             recorded_states.reverse()
-            for recorded_state in recorded_states:
-                self.update_weights(recorded_state, next_state_value, discount_rate)
+            for state, description, value in recorded_states:
+                self.update_weights(state, next_state_value, discount_rate)
                 discount_rate *= 0.9
 
         if self.save:

@@ -6,8 +6,12 @@ class AIAgent(object):
         self.player_token = player_token
         self.ai_model = ai_model
         self.name = 'AI'
+        self.epsilon = 0.5
 
     def get_action(self, actions, game=None, greedy=True):
+        if not greedy and (random.random() < self.epsilon):
+            return random.choice(list(actions))
+
         v_best = None
         a_best = None
 
