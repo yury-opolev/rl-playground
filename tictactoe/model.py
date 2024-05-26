@@ -46,14 +46,14 @@ class Model(object):
         self.optimizer.apply(gradients, self.nn_model.trainable_variables)
 
     def restore_weights(self):
-        weights_filename = f"{self.model_path}/tf-model.weights.h5"
+        weights_filename = f"{self.model_path}tf-model.weights.h5"
         weights_filepath = Path(weights_filename)
         if weights_filepath.exists():
             print(f'Restoring weights: {weights_filename}')
             self.nn_model.load_weights(weights_filename)
 
     def save_weights(self):
-        weights_filename = f"{self.model_path}/tf-model.weights.h5"
+        weights_filename = f"{self.model_path}tf-model.weights.h5"
         print(f'Saving weights: {weights_filename}')
         self.nn_model.save_weights(weights_filename)
 
