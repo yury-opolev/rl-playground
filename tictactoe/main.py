@@ -3,6 +3,8 @@ from absl import flags
 import os
 import tensorflow as tf
 
+print(">>> Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+
 from model import Model
 from q_table_model import QTableModel
 
@@ -32,21 +34,27 @@ if not os.path.exists(summary_path):
     os.makedirs(summary_path)
 
 def main(argv):
-    ai_model = Model(model_path, summary_path, checkpoint_path, restore=FLAGS.restore)
-    if FLAGS.mode == 'test':
-        # TODO: add testing
+    if FLAGS.mode == 'play':
+        ai_model = Model(model_path, summary_path, checkpoint_path, restore=FLAGS.restore)
+        # TODO: add training
         pass
 
-    if FLAGS.mode == 'play':
+    if FLAGS.mode == 'train':
+        ai_model = Model(model_path, summary_path, checkpoint_path, restore=FLAGS.restore, save=FLAGS.save)
+        ai_model.train()
+        pass
+
+    if FLAGS.mode == 'test':
+        ai_model = Model(model_path, summary_path, checkpoint_path, restore=FLAGS.restore, save=FLAGS.save)
+        ai_model.test()
+        pass
+
+    if FLAGS.mode == 'play_q':
         game = Game()
         #player_agents = [HumanAgent('X'), AIAgent('O', ai_model)]
         q_model = QTableModel(model_path + 'q_model_18052024', restore=True)
         player_agents = [HumanAgent('X'), QTableAgent('O', q_model.q_table)]
         game.play(player_agents, draw=True)
-        pass
-
-    if FLAGS.mode == 'train':
-        # TODO: add training
         pass
 
     if FLAGS.mode == 'train_q':

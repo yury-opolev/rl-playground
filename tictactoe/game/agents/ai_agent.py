@@ -8,7 +8,7 @@ class AIAgent(object):
         self.name = 'AI'
 
     def get_action(self, actions, game=None, greedy=True):
-        v_best = 0
+        v_best = None
         a_best = None
 
         for a in actions:
@@ -18,7 +18,7 @@ class AIAgent(object):
             if self.player_token != Game.TOKEN_X:
                 v = 1.0 - v
 
-            if v > v_best:
+            if (v_best == None) or (v > v_best):
                 v_best = v
                 a_best = a
 

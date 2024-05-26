@@ -41,7 +41,7 @@ class Game:
 
             features += cell_features
 
-        if Game.TOKEN_X == self.current_player_token:
+        if Game.TOKEN_X == self.first_player_token:
             features += [1., 0.]
         else:
             features += [0., 1.]
@@ -58,12 +58,12 @@ class Game:
             else:
                 qstate += 'O'
 
-        qstate += f"|{self.first_player}"
+        qstate += f"|{self.first_player_token}"
         return qstate
     
     def play(self, player_agents, draw=False):
         player_num = random.randint(0, 1)
-        self.first_player = self.player_tokens[player_num]
+        self.first_player_token = self.player_tokens[player_num]
         self.current_player_token = self.player_tokens[player_num]
         while not self.is_finished():
             player_agent = player_agents[player_num]

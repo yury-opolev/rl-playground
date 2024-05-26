@@ -1,82 +1,124 @@
 import random
 import tensorflow as tf
+import keras
+import copy
+from pathlib import Path
 from keras import layers
 from keras import models
 from keras import initializers
 
 from game.game import Game
 from game.agents.ai_agent import AIAgent
+from game.agents.random_agent import RandomAgent
 
 class Model(object):
-    def __init__(self, model_path, summary_path, checkpoint_dir, restore=False):
+    def __init__(self, model_path, summary_path, checkpoint_dir, restore=False, save=False):
         self.model_path = model_path
         self.summary_path = summary_path
         self.checkpoint_dir = checkpoint_dir
 
         self.nn_model = models.Sequential([
             layers.Input(shape=(20,)),
-            layers.Dense(20, activation='relu',
-                         kernel_initializer=initializers.RandomNormal(stddev=0.1),
-                         bias_initializer=initializers.RandomNormal(stddev=0.1)),
-            layers.Dense(20, activation='relu',
-                         kernel_initializer=initializers.RandomNormal(stddev=0.1),
-                         bias_initializer=initializers.RandomNormal(stddev=0.1)),
-            # result is a prediction of probability of winning: 1 - 'X' wins, 0 - 'X' looses
+            layers.Dense(20, activation='sigmoid',
+                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                         bias_initializer=initializers.RandomNormal(stddev=0.05)),
+            # result is a prediction of probability of winning: 1 - 'X' wins, 0 - 'O' wins, 0.5 - draw
             layers.Dense(1, activation='sigmoid',
-                         kernel_initializer=initializers.RandomNormal(stddev=0.1),
-                         bias_initializer=initializers.RandomNormal(stddev=0.1))
+                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                         bias_initializer=initializers.RandomNormal(stddev=0.05))
         ])
 
+        self.learning_rate = 0.001
+        self.optimizer = keras.optimizers.SGD(learning_rate=self.learning_rate)
+
+        self.save = save
         if restore:
-            self.restore()
+            self.restore_weights()
 
-    def restore(self):
-        latest_checkpoint_path = tf.train.latest_checkpoint(self.checkpoint_dir)
-        if latest_checkpoint_path:
-            print('Restoring checkpoint: {0}'.format(latest_checkpoint_path))
-            self.nn_model.load_weights(latest_checkpoint_path)
+    def get_output(self, state):
+        return self.nn_model(state)
 
-    def get_output(self, x):
-        return self.nn_model(x)
-    
-    def train(self):
-        validation_interval = 500
-        episodes = 5000
+    def update_weights(self, state, expected_value, discount_rate=1.0):
+        with tf.GradientTape() as tape:
+            predicted_value = self.get_output(state)
+            loss = tf.abs(tf.multiply(tf.subtract(expected_value, predicted_value), discount_rate))
+            gradients = tape.gradient(loss, self.nn_model.trainable_variables)
+        self.optimizer.apply(gradients, self.nn_model.trainable_variables)
+
+    def restore_weights(self):
+        weights_filename = f"{self.model_path}/tf-model.weights.h5"
+        weights_filepath = Path(weights_filename)
+        if weights_filepath.exists():
+            print(f'Restoring weights: {weights_filename}')
+            self.nn_model.load_weights(weights_filename)
+
+    def save_weights(self):
+        weights_filename = f"{self.model_path}/tf-model.weights.h5"
+        print(f'Saving weights: {weights_filename}')
+        self.nn_model.save_weights(weights_filename)
+
+    def test(self, episodes=100):
+        winners = { Game.EMPTYTOKEN: 0, Game.TOKEN_X: 0, Game.TOKEN_O: 0 }
         for episode in range(episodes):
-            if episode != 0 and episode % validation_interval == 0:
+            game = Game()
+            player_agents = [AIAgent('X', self), RandomAgent('O')]
+            winner_token = game.play(player_agents, draw=False)
+            if winner_token is None:
+                winner_token = Game.EMPTYTOKEN
+            winners[winner_token] = winners[winner_token] + 1
+
+        print(f"Games played: {episodes}, draws: {winners[Game.EMPTYTOKEN]}, 'X' wins: {winners[Game.TOKEN_X]}, 'O' wins: {winners[Game.TOKEN_O]}.")
+
+    def train(self):
+        validation_interval = 1000
+        episodes = 10000
+        for episode in range(episodes):
+            if episode % validation_interval == 0:
+                print(f"Testing after {episode} episodes:")
                 self.test(episodes=100)
 
             player_agents = [AIAgent('X', self), AIAgent('O', self)]
             game = Game()
 
             player_num = random.randint(0, 1)
+            player_agent = player_agents[player_num]
             game.current_player_token = game.player_tokens[player_num]
+            game.first_player_token = game.player_tokens[player_num]
 
             game_step = 0
+            recorded_states = []
             while not game.is_finished():
                 observed_state = game.extract_features()
-                state_value = player_agent.ai_model.get_output(observed_state)
+                state_value = self.get_output(observed_state)
+                recorded_states.append(copy.deepcopy(observed_state))
 
-                player_agent = player_agents[player_num]
                 game.make_move(player_agent)
 
                 player_num = (player_num + 1) % 2
+                player_agent = player_agents[player_num]
                 game.current_player_token = game.player_tokens[player_num]
 
                 next_observed_state = game.extract_features()
                 if (game.is_finished()):
-                    if game.winner_token() == Game.TOKEN_X:
+                    next_state_value = 0.5
+                    if game.winner_token == Game.TOKEN_X:
                         next_state_value = 1.0
-                    elif game.winner_token() == Game.TOKEN_O:
+                    elif game.winner_token == Game.TOKEN_O:
                         next_state_value = 0.0
-                    else:
-                        next_state_value = 0.5
                 else:
-                    next_state_value = player_agent.ai_model.get_output(next_observed_state)
+                    next_state_value = self.get_output(next_observed_state)
 
-                # self.sess.run(self.train_op, feed_dict={ self.x: x, next_state_value })
+                self.update_weights(observed_state, next_state_value, discount_rate=1.0)
 
                 game_step += 1
 
-            winner = game.winner()
+            recorded_states.append(copy.deepcopy(next_observed_state))
+            discount_rate = 1.0
+            recorded_states.reverse()
+            for recorded_state in recorded_states:
+                self.update_weights(recorded_state, next_state_value, discount_rate)
+                discount_rate *= 0.9
+
+        if self.save:
+            self.save_weights()
 
