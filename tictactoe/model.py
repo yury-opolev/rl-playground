@@ -121,13 +121,19 @@ class Model(object):
             for state, description, value in recorded_states:
                 value_single = value[0,0].numpy()
                 line_to_print += f"{description}:{value_single:.8f};"
-            print(line_to_print)
+            print(f"BEFORE: {line_to_print}")
 
             discount_rate = 1.0
             recorded_states.reverse()
             for state, description, value in recorded_states:
                 self.update_weights(state, next_state_value, discount_rate)
                 discount_rate *= 0.9
+
+            line_to_print = ""
+            for state, description, value in recorded_states:
+                value_single = self.get_output(state)[0,0].numpy()
+                line_to_print += f"{description}:{value_single:.8f};"
+            print(f"AFTER: {line_to_print}")
 
         if self.save:
             self.save_weights()
