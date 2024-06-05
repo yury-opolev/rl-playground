@@ -1,13 +1,15 @@
 
-class HumanAgent(object):
+from game.agents.base_agent import TicTacToeAgent
+
+class HumanAgent(TicTacToeAgent):
     def __init__(self, player_token):
         self.player_token = player_token
         self.name = 'Human'
 
-    def get_action(self, actions, game=None, greedy=True):
+    def get_action(self, actions, game=None, epsilon=0.0):
         if not actions:
             input("No moves for you...(hit enter)")
-            return None
+            return None, None
 
         while True:
             while True:
@@ -19,11 +21,11 @@ class HumanAgent(object):
                     break
 
             if action in actions:
-                return action
+                return action, None
             else:
                 print("You can't play that move")
 
-        return None
+        return None, None
 
     def try_parse_move(self, action):
         try:

@@ -1,24 +1,29 @@
 import random
-from game.game import Game
+import numpy as np
+from game.agents.base_agent import TicTacToeAgent
+from game.env import Game
 
-class AIAgent(object):
-    def __init__(self, player_token, ai_model):
+class AIAgent(TicTacToeAgent):
+    def __init__(self, player_token, td_model):
         self.player_token = player_token
-        self.ai_model = ai_model
+        self.td_model = td_model
         self.name = 'AI'
-        self.epsilon = 0.5
 
-    def get_action(self, actions, game=None, greedy=True):
-        if not greedy and (random.random() < self.epsilon):
-            return random.choice(list(actions))
+    def get_action(self, actions, game, epsilon=0.0):
+        if np.random.binomial(1, epsilon) != 0:
+            return (random.choice(list(actions)), None)
 
         v_best = None
         a_best = None
 
+        if not actions:
+            return (a_best, v_best)
+
         for a in actions:
             game.take_action(a, self.player_token)
             features = game.extract_features()
-            v = self.ai_model.get_output(features)
+            v = self.td_model.get_output(features)
+
             if self.player_token != Game.TOKEN_X:
                 v = 1.0 - v
 
@@ -26,6 +31,7 @@ class AIAgent(object):
                 v_best = v
                 a_best = a
 
-            game.undo_action(a, self.player_token)
+            game.undo_action(a)
 
-        return a_best
+        # return action and it's value
+        return (a_best, v_best)

@@ -7,16 +7,12 @@ from keras import layers
 from keras import models
 from keras import initializers
 
-from game.game import Game
+from game.env import Game
 from game.agents.ai_agent import AIAgent
 from game.agents.random_agent import RandomAgent
 
 class Model(object):
-    def __init__(self, model_path, summary_path, checkpoint_dir, restore=False, save=False):
-        self.model_path = model_path
-        self.summary_path = summary_path
-        self.checkpoint_dir = checkpoint_dir
-
+    def __init__(self):
         self.nn_model = models.Sequential([
             layers.Input(shape=(20,)),
             layers.Dense(20, activation='sigmoid',
@@ -31,38 +27,38 @@ class Model(object):
         self.learning_rate = 0.001
         self.optimizer = keras.optimizers.SGD(learning_rate=self.learning_rate)
 
-        self.save = save
-        if restore:
-            self.restore_weights()
+    def init_eligiblity_trace(self):
+        self.eligibility_traces = [tf.zeros(weights.shape, requires_grad=False) for weights in self.nn_model.trainable_weights]
 
     def get_output(self, state):
-        return self.nn_model(state)
-
-    def update_weights(self, state, expected_value, discount_rate=1.0):
-        with tf.GradientTape() as tape:
-            predicted_value = self.get_output(state)
-            loss = tf.abs(tf.multiply(tf.subtract(expected_value, predicted_value), discount_rate))
-            gradients = tape.gradient(loss, self.nn_model.trainable_variables)
-        self.optimizer.apply(gradients, self.nn_model.trainable_variables)
-
-    def restore_weights(self):
-        weights_filename = f"{self.model_path}tf-model.weights.h5"
-        weights_filepath = Path(weights_filename)
-        if weights_filepath.exists():
-            print(f'Restoring weights: {weights_filename}')
-            self.nn_model.load_weights(weights_filename)
-
-    def save_weights(self):
-        weights_filename = f"{self.model_path}tf-model.weights.h5"
-        print(f'Saving weights: {weights_filename}')
-        self.nn_model.save_weights(weights_filename)
+        input_state = tf.convert_to_tensor([state])
+        return self.nn_model(input_state)
 
     def test(self, episodes=100):
         winners = { Game.EMPTYTOKEN: 0, Game.TOKEN_X: 0, Game.TOKEN_O: 0 }
         for episode in range(episodes):
             game = Game()
             player_agents = [AIAgent('X', self), RandomAgent('O')]
-            winner_token = game.play(player_agents, draw=False)
+            
+            game.current_player_token = game.random_player()
+            if game.current_player_token == Game.TOKEN_X:
+                current_player_agent = player_agents[0]
+            else:
+                current_player_agent = player_agents[1]
+
+            while not game.is_finished():
+                actions = game.get_possible_actions()
+                action_value = current_player_agent.get_action(actions, game)
+                action, value = action_value
+                game.take_action(action, game.current_player_token)
+
+                game.change_player()
+                if game.current_player_token == Game.TOKEN_X:
+                    current_player_agent = player_agents[0]
+                else:
+                    current_player_agent = player_agents[1]
+
+            winner_token = game.winner_token
             if winner_token is None:
                 winner_token = Game.EMPTYTOKEN
             winners[winner_token] = winners[winner_token] + 1
@@ -138,3 +134,19 @@ class Model(object):
         if self.save:
             self.save_weights()
 
+    def update_weights(self, state, expected_value, discount_rate=1.0):
+        with tf.GradientTape() as tape:
+            predicted_value = self.get_output(state)
+            loss = tf.abs(tf.multiply(tf.subtract(expected_value, predicted_value), discount_rate))
+            gradients = tape.gradient(loss, self.nn_model.trainable_variables)
+        self.optimizer.apply(gradients, self.nn_model.trainable_variables)
+
+    def restore_weights(self, path):
+        weights_filepath = Path(path)
+        if weights_filepath.exists():
+            print(f'Restoring weights: {path}')
+            self.nn_model.load_weights(path)
+
+    def save_weights(self, path):
+        print(f'Saving weights: {path}')
+        self.nn_model.save_weights(path)

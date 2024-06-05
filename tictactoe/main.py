@@ -6,13 +6,10 @@ import tensorflow as tf
 print(">>> Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
 from model import Model
-from q_table_model import QTableModel
-
-from game.game import Game
+from game.env import Game
 from game.agents.human_agent import HumanAgent
 from game.agents.random_agent import RandomAgent
 from game.agents.ai_agent import AIAgent
-from game.agents.q_table_agent import QTableAgent
 
 FLAGS = flags.FLAGS
 
@@ -21,49 +18,61 @@ flags.DEFINE_boolean('restore', False, 'If true, restore the model from latest c
 flags.DEFINE_boolean('save', False, 'If true, save the trained model (works only for q model and train mode).')
 
 model_path = os.environ.get('MODEL_PATH', 'models/')
-summary_path = os.environ.get('SUMMARY_PATH', 'summaries/')
-checkpoint_path = os.environ.get('CHECKPOINT_PATH', 'checkpoints/')
 
 if not os.path.exists(model_path):
     os.makedirs(model_path)
 
-if not os.path.exists(checkpoint_path):
-    os.makedirs(checkpoint_path)
-
-if not os.path.exists(summary_path):
-    os.makedirs(summary_path)
-
 def main(argv):
     if FLAGS.mode == 'play':
-        ai_model = Model(model_path, summary_path, checkpoint_path, restore=FLAGS.restore)
-        # TODO: add training
-        pass
+        ai_model = Model()
+        if FLAGS.restore:
+            ai_model.restore_weights('models/current.weights.h5')
+
+        game = Game()
+        player_agents = [AIAgent('X', ai_model), HumanAgent('O')]
+
+        game.current_player_token = game.random_player()
+        if game.current_player_token == Game.TOKEN_X:
+            current_player_agent = player_agents[0]
+        else:
+            current_player_agent = player_agents[1]
+
+        while not game.is_finished():
+            game.clear_screen()
+            game.draw()
+
+            actions = game.get_possible_actions()
+            action_value = current_player_agent.get_action(actions, game)
+            action, value = action_value
+            game.take_action(action, game.current_player_token)
+
+            game.change_player()
+            if game.current_player_token == Game.TOKEN_X:
+                current_player_agent = player_agents[0]
+            else:
+                current_player_agent = player_agents[1]
+
+        game.clear_screen()
+        game.draw()
+
+        if game.winner_token == None:
+            print("DRAW.")
+        elif game.winner_token == Game.TOKEN_X:
+            print("X wins!")
+        else:
+            print("O wins!")
 
     if FLAGS.mode == 'train':
-        ai_model = Model(model_path, summary_path, checkpoint_path, restore=FLAGS.restore, save=FLAGS.save)
+        ai_model = Model(model_path, restore=FLAGS.restore, save=FLAGS.save)
         ai_model.train()
         pass
 
     if FLAGS.mode == 'test':
-        ai_model = Model(model_path, summary_path, checkpoint_path, restore=FLAGS.restore, save=FLAGS.save)
+        ai_model = Model()
+        if FLAGS.restore:
+            ai_model.restore_weights('models/current.weights.h5')
+
         ai_model.test()
-        pass
-
-    if FLAGS.mode == 'play_q':
-        game = Game()
-        #player_agents = [HumanAgent('X'), AIAgent('O', ai_model)]
-        q_model = QTableModel(model_path + 'q_model_18052024', restore=True)
-        player_agents = [HumanAgent('X'), QTableAgent('O', q_model.q_table)]
-        game.play(player_agents, draw=True)
-        pass
-
-    if FLAGS.mode == 'train_q':
-        q_model = QTableModel(model_path + 'q_model', restore=FLAGS.restore, save=FLAGS.save)
-        q_model.train_q_table()
-
-    if FLAGS.mode == 'test_q':
-        q_model = QTableModel(model_path + 'q_model', restore=FLAGS.restore, save=FLAGS.save)
-        q_model.test()
 
 if __name__ == '__main__':
     app.run(main)
