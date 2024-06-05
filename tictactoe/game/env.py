@@ -74,16 +74,16 @@ class Game:
             self.current_player_token = Game.TOKEN_X
             return self.current_player_token
 
-    def step(self, move, grid, player_token):
+    def step(self, action, grid, player_token):
         reward, done = self.check_is_finished()
         if done == True:
             return reward, done
 
         self.current_player_token = player_token
-        grid[move] = player_token
+        grid[action] = player_token
 
         # return (reward, is_done)
-        return None, False
+        return self.check_is_finished()
 
     def take_action(self, action, player_token):
         x, y = action

@@ -63,9 +63,8 @@ def main(argv):
             print("O wins!")
 
     if FLAGS.mode == 'train':
-        ai_model = Model(model_path, restore=FLAGS.restore, save=FLAGS.save)
-        ai_model.train()
-        pass
+        ai_model = Model()
+        ai_model.train(episodes=1000)
 
     if FLAGS.mode == 'test':
         ai_model = Model()
