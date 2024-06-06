@@ -24,7 +24,7 @@ class NNModel(object):
                          bias_initializer=initializers.RandomNormal(stddev=0.05))
         ])
 
-        self.learning_rate = 0.001
+        self.learning_rate = 0.01
         self.lamda = 0.7
         self.optimizer = keras.optimizers.SGD(learning_rate=self.learning_rate)
 

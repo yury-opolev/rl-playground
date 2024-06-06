@@ -9,7 +9,7 @@ from game.agents.random_agent import RandomAgent
 class QTabModel(object):
     def __init__(self):
         self.q_table = {}
-        self.learning_rate = 0.001
+        self.learning_rate = 0.01
 
     def get_state_value(self, state):
         state_key = self.get_state_key(state)
