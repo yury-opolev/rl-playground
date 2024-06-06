@@ -70,7 +70,7 @@ def main(argv):
 
         for batch in range(1000):
             print(f"training batch: {batch}")
-            ai_model.train(episodes=1000)
+            ai_model.train(episodes=10000, epsilon=0.8)
             if FLAGS.save:
                 ai_model.save_weights('models/current.weights.h5')
 
@@ -80,6 +80,45 @@ def main(argv):
             ai_model.restore_weights('models/current.weights.h5')
 
         ai_model.test()
+
+    if FLAGS.mode == 'q_play':
+        qtab_model = QTabModel()
+        if FLAGS.restore:
+            qtab_model.restore_weights('models/current.weights.qtab')
+
+        game = Game()
+        player_agents = [AIAgent('X', qtab_model), HumanAgent('O')]
+
+        game.current_player_token = game.starting_random_player()
+        if game.current_player_token == Game.TOKEN_X:
+            current_player_agent = player_agents[0]
+        else:
+            current_player_agent = player_agents[1]
+
+        while not game.is_finished():
+            game.clear_screen()
+            game.draw()
+
+            actions = game.get_possible_actions()
+            action_value = current_player_agent.get_action(actions, game)
+            action, value = action_value
+            game.take_action(action, game.current_player_token)
+
+            game.change_player()
+            if game.current_player_token == Game.TOKEN_X:
+                current_player_agent = player_agents[0]
+            else:
+                current_player_agent = player_agents[1]
+
+        game.clear_screen()
+        game.draw()
+
+        if game.winner_token == None:
+            print("DRAW.")
+        elif game.winner_token == Game.TOKEN_X:
+            print("X wins!")
+        else:
+            print("O wins!")
 
     if FLAGS.mode == 'q_train':
         qtab_model = QTabModel()
