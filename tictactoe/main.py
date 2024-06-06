@@ -5,7 +5,8 @@ import tensorflow as tf
 
 print(">>> Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
-from model import Model
+from nn_model import NNModel
+from qtab_model import QTabModel
 from game.env import Game
 from game.agents.human_agent import HumanAgent
 from game.agents.random_agent import RandomAgent
@@ -24,14 +25,14 @@ if not os.path.exists(model_path):
 
 def main(argv):
     if FLAGS.mode == 'play':
-        ai_model = Model()
+        ai_model = NNModel()
         if FLAGS.restore:
             ai_model.restore_weights('models/current.weights.h5')
 
         game = Game()
         player_agents = [AIAgent('X', ai_model), HumanAgent('O')]
 
-        game.current_player_token = game.random_player()
+        game.current_player_token = game.starting_random_player()
         if game.current_player_token == Game.TOKEN_X:
             current_player_agent = player_agents[0]
         else:
@@ -63,15 +64,41 @@ def main(argv):
             print("O wins!")
 
     if FLAGS.mode == 'train':
-        ai_model = Model()
-        ai_model.train(episodes=1000)
+        ai_model = NNModel()
+        if FLAGS.restore:
+            ai_model.restore_weights('models/current.weights.h5')
+
+        for batch in range(1000):
+            print(f"training batch: {batch}")
+            ai_model.train(episodes=1000)
+            if FLAGS.save:
+                ai_model.save_weights('models/current.weights.h5')
 
     if FLAGS.mode == 'test':
-        ai_model = Model()
+        ai_model = NNModel()
         if FLAGS.restore:
             ai_model.restore_weights('models/current.weights.h5')
 
         ai_model.test()
+
+    if FLAGS.mode == 'q_train':
+        qtab_model = QTabModel()
+        if FLAGS.restore:
+            qtab_model.restore_weights('models/current.weights.qtab')
+
+        for batch in range(100):
+            print(f"training batch: {batch}")
+            qtab_model.train(episodes=10000, epsilon=0.8)
+            if FLAGS.save:
+                qtab_model.save_weights('models/current.weights.qtab')
+
+    if FLAGS.mode == 'q_test':
+        qtab_model = QTabModel()
+        if FLAGS.restore:
+            qtab_model.restore_weights('models/current.weights.qtab')
+
+        qtab_model.test()
+
 
 if __name__ == '__main__':
     app.run(main)

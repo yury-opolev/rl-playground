@@ -40,7 +40,7 @@ class Game:
                 cell_features[1] = 1.0
             features += cell_features
 
-        if self.current_player_token == Game.TOKEN_X:
+        if self.starting_player_token == Game.TOKEN_X:
             features += [1., 0.]
         else:
             features += [0., 1.]
@@ -52,18 +52,19 @@ class Game:
         # return (reward, is_done)
 
         if not self.is_finished():
-            return None, False
+            return 0.0, False
 
         if self.winner_token == Game.TOKEN_X:
             return 1.0, True
 
         if self.winner_token == Game.TOKEN_O:
-            return 0.0, True
+            return -1.0, True
 
-        return 0.5, True
+        return 0.0, True
 
-    def random_player(self):
-        return np.random.choice([Game.TOKEN_X, Game.TOKEN_O])
+    def starting_random_player(self):
+        self.starting_player_token = np.random.choice([Game.TOKEN_X, Game.TOKEN_O])
+        return self.starting_player_token
 
     def change_player(self):
         if self.current_player_token == Game.TOKEN_X:
