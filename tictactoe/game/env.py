@@ -55,10 +55,10 @@ class Game:
             return 0.0, False
 
         if self.winner_token == Game.TOKEN_X:
-            return 1.0, True
+            return 0.99, True
 
         if self.winner_token == Game.TOKEN_O:
-            return -1.0, True
+            return -0.99, True
 
         return 0.0, True
 

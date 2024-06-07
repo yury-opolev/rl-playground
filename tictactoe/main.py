@@ -68,9 +68,10 @@ def main(argv):
         if FLAGS.restore:
             ai_model.restore_weights('models/current.weights.h5')
 
-        for batch in range(1000):
-            print(f"training batch: {batch}")
-            ai_model.train(episodes=10000, epsilon=0.8)
+        batch_count = 10000
+        for batch in range(batch_count):
+            print(f"training batch: {batch} of {batch_count}")
+            ai_model.train(episodes=1000, epsilon=0.8)
             if FLAGS.save:
                 ai_model.save_weights('models/current.weights.h5')
 
@@ -125,8 +126,9 @@ def main(argv):
         if FLAGS.restore:
             qtab_model.restore_weights('models/current.weights.qtab')
 
-        for batch in range(100):
-            print(f"training batch: {batch}")
+        batch_count = 100
+        for batch in range(batch_count):
+            print(f"training batch: {batch} of {batch_count}")
             qtab_model.train(episodes=10000, epsilon=0.8)
             if FLAGS.save:
                 qtab_model.save_weights('models/current.weights.qtab')
