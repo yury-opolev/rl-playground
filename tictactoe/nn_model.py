@@ -24,9 +24,12 @@ class NNModel(object):
                          bias_initializer=initializers.RandomNormal(stddev=0.05))
         ])
 
-        self.learning_rate = 0.001
+        self.learning_rate = 0.01
         self.lamda = 0.7
         self.optimizer = keras.optimizers.SGD(learning_rate=self.learning_rate)
+
+    def init_eligiblity_trace(self):
+        self.eligibility_traces = [tf.Variable(tf.zeros(weights.shape), trainable=False) for weights in self.nn_model.trainable_weights]
 
     def get_output(self, state):
         input_state = tf.convert_to_tensor([state])
@@ -71,6 +74,8 @@ class NNModel(object):
             game.current_player_token = game.starting_random_player()
             current_player_agent = self.get_player_agent(game, player_agents)
 
+            self.init_eligiblity_trace()
+
             while True:
                 observed_state = game.extract_features()
                 state_value = self.get_output(observed_state)
@@ -102,8 +107,9 @@ class NNModel(object):
             gradients = tape.gradient(predicted_value, self.nn_model.trainable_weights)
 
         for i, gradient in enumerate(gradients):
+            self.eligibility_traces[i].assign(self.lamda * self.eligibility_traces[i] + gradient)
             weight = self.nn_model.trainable_weights[i]
-            weight.assign_add(self.learning_rate * tf.reshape(expected_value - predicted_value, shape=(1,)) * gradient)
+            weight.assign_add(self.learning_rate * tf.reshape(expected_value - predicted_value, shape=(1,)) * self.eligibility_traces[i])
 
     def restore_weights(self, path):
         weights_filepath = Path(path)
