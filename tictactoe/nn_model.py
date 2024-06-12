@@ -18,13 +18,12 @@ class NNModel(object):
             layers.Dense(20, activation=keras.activations.sigmoid,
                          kernel_initializer=initializers.RandomNormal(stddev=0.05),
                          bias_initializer=initializers.RandomNormal(stddev=0.05)),
-            # result is a prediction of probability of winning: 1 - 'X' wins, 0 - 'O' wins, 0.5 - draw
             layers.Dense(1, activation=keras.activations.tanh,
                          kernel_initializer=initializers.RandomNormal(stddev=0.05),
                          bias_initializer=initializers.RandomNormal(stddev=0.05))
         ])
 
-        self.learning_rate = 0.0001
+        self.learning_rate = 0.001
         self.lamda = 0.7
         self.optimizer = keras.optimizers.SGD(learning_rate=self.learning_rate)
 

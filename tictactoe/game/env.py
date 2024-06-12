@@ -64,6 +64,7 @@ class Game:
 
     def starting_random_player(self):
         self.starting_player_token = np.random.choice([Game.TOKEN_X, Game.TOKEN_O])
+        self.current_player_token = self.starting_player_token
         return self.starting_player_token
 
     def change_player(self):

@@ -10,28 +10,27 @@ class AIAgent(TicTacToeAgent):
         self.name = 'AI'
 
     def get_action(self, actions, game, epsilon=0.0):
-        if np.random.binomial(1, epsilon) != 0:
-            return (random.choice(list(actions)), None)
-
         v_best = None
         a_best = None
-
+        
         if not actions:
-            return (a_best, v_best)
+            return (a_best, 0.0)
+
+        features = game.extract_features()
+        if np.random.binomial(1, epsilon) != 0:
+            random_action = random.choice(list(actions))
+            random_action_value = self.td_model.get_output(features, random_action)
+            return (random_action, random_action_value)
 
         for a in actions:
-            game.take_action(a, self.player_token)
-            features = game.extract_features()
-            v = self.td_model.get_output(features)
+            v = self.td_model.get_output(features, a)
 
             if self.player_token != Game.TOKEN_X:
-                v = 1.0 - v
+                v = -1.0 * v
 
             if (v_best == None) or (v > v_best):
                 v_best = v
                 a_best = a
-
-            game.undo_action(a)
 
         # return action and it's value
         return (a_best, v_best)

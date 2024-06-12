@@ -126,10 +126,10 @@ def main(argv):
         if FLAGS.restore:
             qtab_model.restore_weights('models/current.weights.qtab')
 
-        batch_count = 100
+        batch_count = 1000
         for batch in range(batch_count):
             print(f"training batch: {batch} of {batch_count}")
-            qtab_model.train(episodes=10000, epsilon=0.8)
+            qtab_model.train(episodes=10000, epsilon=0.99)
             if FLAGS.save:
                 qtab_model.save_weights('models/current.weights.qtab')
 
