@@ -2,6 +2,8 @@ import random
 import pickle
 import numpy as np
 
+import copy
+
 from pathlib import Path
 
 from game.env import Game
@@ -12,8 +14,8 @@ class QTabModel(object):
     def __init__(self):
         self.q_table = {}
 
-        self.learning_rate = 0.001
-        self.gamma = 0.9
+        self.learning_rate = 0.001 #0.001
+        self.gamma = 0.99
 
     def get_action_index(self, action):
         x, y = action
@@ -28,12 +30,20 @@ class QTabModel(object):
         return self.q_table[state_key][action_index]
     
     def get_state_key(self, state):
-        return ''.join([f"{int(item)}" for item in state])
+        result = ''
+        for item_1,item_2 in zip(state[0::2], state[1::2]):
+            if item_1 == 1:
+                result += 'X'
+            elif item_2 == 1:
+                result += 'O'
+            else:
+                result += '-'
+        return result
 
     def get_output(self, state, action):
         return self.get_state_action_value(state, action)
 
-    def test(self, episodes=100):
+    def test(self, episodes=1000, print_failed_games=False):
         winners = { Game.EMPTYTOKEN: 0, Game.TOKEN_X: 0, Game.TOKEN_O: 0 }
         for episode in range(episodes):
             game = Game()
@@ -42,7 +52,9 @@ class QTabModel(object):
             game.current_player_token = game.starting_random_player()
             current_player_agent = self.get_player_agent(game, player_agents)
 
+            game_history = []
             while not game.is_finished():
+                observed_state = game.extract_features()
                 actions = game.get_possible_actions()
                 action, value = current_player_agent.get_action(actions, game)
                 game.take_action(action, game.current_player_token)
@@ -50,19 +62,26 @@ class QTabModel(object):
                 game.change_player()
                 current_player_agent = self.get_player_agent(game, player_agents)
 
+                next_observed_state = game.extract_features()
+                game_history.append((self.get_state_key(observed_state), action, self.get_state_key(next_observed_state)))
+
             winner_token = game.winner_token
             if winner_token is None:
                 winner_token = Game.EMPTYTOKEN
             winners[winner_token] = winners[winner_token] + 1
 
-        print(f"Games played: {episodes}, draws: {winners[Game.EMPTYTOKEN]}, 'X' wins: {winners[Game.TOKEN_X]}, 'O' wins: {winners[Game.TOKEN_O]}.")
+            if print_failed_games and winner_token == Game.TOKEN_O:
+                print(game.get_string())
 
-    def train(self, episodes=10000, epsilon=0.5):
-        validation_interval = 1000
+        print(f"Games played: {episodes}, draws: {winners[Game.EMPTYTOKEN]}, 'X' wins: {winners[Game.TOKEN_X]}, 'O' wins: {winners[Game.TOKEN_O]}.")
+        return (winners[Game.EMPTYTOKEN], winners[Game.TOKEN_X], winners[Game.TOKEN_O])
+
+    def train(self, episodes=10000, epsilon=0.5, validate=False):
+        validation_interval = 10000
         for episode in range(episodes):
-            if episode % validation_interval == 0:
+            if validate and (episode % validation_interval == 0):
                 print(f"Testing after {episode} episodes:")
-                self.test(episodes=100)
+                self.test()
                 print()
 
             player_agents = [AIAgent('X', self), AIAgent('O', self)]
@@ -71,7 +90,9 @@ class QTabModel(object):
             game.current_player_token = game.starting_random_player()
             current_player_agent = self.get_player_agent(game, player_agents)
 
-            while True:
+            is_done = False
+            single_game_history = []
+            while not is_done:
                 # get state S 
                 observed_state = game.extract_features()
 
@@ -89,24 +110,30 @@ class QTabModel(object):
                 next_observed_state = game.extract_features()
 
                 # get action A' (and Q(S',A'))
-                actions_next = game.get_possible_actions()
-                (action_next, action_next_value) = current_player_agent.get_action(actions_next, game, epsilon)
+                if is_done:
+                    best_next_state_action_value = 0.0
+                else:
+                    actions_next = game.get_possible_actions()
+                    (best_next_action, best_next_state_action_value) = current_player_agent.get_action(actions_next, game, epsilon)
+
+                single_game_history.append((observed_state, action, reward, best_next_state_action_value))
 
                 # Q(S, A) <- Q(S, A) + alpha * ((R  + gamma * Q(S',A')) - Q(S, A))
-                self.update_weights(observed_state, action, (reward + self.gamma * action_next_value) - action_value)
-
-                if is_done:
-                    break
+                self.update_weights(observed_state, action, reward, best_next_state_action_value)
 
         print(f"Final testing:")
-        self.test(episodes=100)
+        (draw, win_x, win_o) = self.test()
         print()
 
-    def update_weights(self, state, action, td_error, discount_rate=1.0):
+        return (draw, win_x, win_o)
+
+    def update_weights(self, state, action, reward, next_state_action_value):
+        # Q(S, A) <- Q(S, A) + alpha * ((R  + gamma * Q(S',A')) - Q(S, A))
         state_key = self.get_state_key(state)
         action_index = self.get_action_index(action)
-        state_value = self.get_state_action_value(state, action)
-        self.q_table[state_key][action_index] = state_value + self.learning_rate * td_error
+
+        state_action_value = self.q_table[state_key][action_index]
+        self.q_table[state_key][action_index] = state_action_value + self.learning_rate * (reward + self.gamma * next_state_action_value - state_action_value)
 
     def restore_weights(self, path):
         existing_modelfile = Path(path)

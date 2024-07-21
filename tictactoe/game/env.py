@@ -23,7 +23,7 @@ class Game:
         self.winner_token = None
 
         # return (reward, is_done)
-        return None, False
+        return 0.0, False
 
     def extract_features(self):
         features = []
@@ -105,6 +105,9 @@ class Game:
         return possible_actions
 
     def is_finished(self):
+        if self.winner_token is not None:
+            return True
+
         self.winner_token = self.find_winner_token()
         if self.winner_token is not None:
             return True
@@ -114,7 +117,12 @@ class Game:
             for j in [0, 1, 2]:
                 if (self.grid[i,j] != Game.EMPTYTOKEN):
                     occupied_cells += 1
-        return (occupied_cells == 9)
+
+        is_full = (occupied_cells == 9)
+        if is_full:
+            self.winner_token = Game.EMPTYTOKEN
+
+        return is_full
 
     def find_winner_token(self):
         for token in self.player_tokens:
@@ -138,11 +146,15 @@ class Game:
             os.system('clear')
 
     def draw(self):
-        print( '  ┌───┬───┬───┐')
-        print(f'0 │ {self.grid[0,0]} │ {self.grid[0,1]} │ {self.grid[0,2]} │')
-        print( '  ├───┼───┼───┤')
-        print(f'1 │ {self.grid[1,0]} │ {self.grid[1,1]} │ {self.grid[1,2]} │')
-        print( '  ├───┼───┼───┤')
-        print(f'2 │ {self.grid[2,0]} │ {self.grid[2,1]} │ {self.grid[2,2]} │')
-        print( '  └───┴───┴───┘')
-        print( '    0   1   2  ')
+        print(self.get_string())
+
+    def get_string(self):
+        result =   '  ┌───┬───┬───┐\n'
+        result += f'0 │ {self.grid[0,0]} │ {self.grid[0,1]} │ {self.grid[0,2]} │\n'
+        result +=  '  ├───┼───┼───┤\n'
+        result += f'1 │ {self.grid[1,0]} │ {self.grid[1,1]} │ {self.grid[1,2]} │\n'
+        result +=  '  ├───┼───┼───┤\n'
+        result += f'2 │ {self.grid[2,0]} │ {self.grid[2,1]} │ {self.grid[2,2]} │\n'
+        result +=  '  └───┴───┴───┘\n'
+        result +=  '    0   1   2  '
+        return result
