@@ -2,6 +2,7 @@ from absl import app
 from absl import flags
 import os
 import tensorflow as tf
+import random
 
 print(">>> Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
@@ -30,9 +31,12 @@ def main(argv):
             ai_model.restore_weights('models/current.weights.h5')
 
         game = Game()
-        player_agents = [AIAgent('X', ai_model), HumanAgent('O')]
 
-        game.current_player_token = game.starting_random_player()
+        if random.choice([0, 1]) == 0:
+            player_agents = [AIAgent('X', ai_model), HumanAgent('O')]
+        else:
+            player_agents = [HumanAgent('X'), AIAgent('O', ai_model)]
+
         if game.current_player_token == Game.TOKEN_X:
             current_player_agent = player_agents[0]
         else:
@@ -88,9 +92,11 @@ def main(argv):
             qtab_model.restore_weights('models/current.weights.qtab')
 
         game = Game()
-        player_agents = [AIAgent('X', qtab_model), HumanAgent('O')]
+        if random.choice([0, 1]) == 0:
+            player_agents = [AIAgent('X', ai_model), HumanAgent('O')]
+        else:
+            player_agents = [HumanAgent('X'), AIAgent('O', ai_model)]
 
-        game.current_player_token = game.starting_random_player()
         if game.current_player_token == Game.TOKEN_X:
             current_player_agent = player_agents[0]
         else:

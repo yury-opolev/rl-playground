@@ -15,7 +15,7 @@ class QTabModel(object):
         self.q_table = {}
 
         self.learning_rate = 0.001 #0.001
-        self.gamma = 0.99
+        self.gamma = 1.0
 
     def get_action_index(self, action):
         x, y = action
@@ -44,12 +44,22 @@ class QTabModel(object):
         return self.get_state_action_value(state, action)
 
     def test(self, episodes=1000, print_failed_games=False):
-        winners = { Game.EMPTYTOKEN: 0, Game.TOKEN_X: 0, Game.TOKEN_O: 0 }
+        ai_wins = { 'WON': 0, 'LOST': 0, 'DRAW': 0 }
         for episode in range(episodes):
             game = Game()
-            player_agents = [AIAgent('X', self), RandomAgent('O')]
+
+            if random.choice([0, 1]) == 0:
+                player_agents = [AIAgent('X', self), RandomAgent('O')]
+                ai_agent_token = Game.TOKEN_X
+                random_agent_token = Game.TOKEN_O
+            else:
+                player_agents = [RandomAgent('X'), AIAgent('O', self)]
+                ai_agent_token = Game.TOKEN_O
+                random_agent_token = Game.TOKEN_X
             
-            game.current_player_token = game.starting_random_player()
+            game.starting_player_token = Game.TOKEN_X
+            game.current_player_token = game.starting_player_token
+
             current_player_agent = self.get_player_agent(game, player_agents)
 
             game_history = []
@@ -66,15 +76,19 @@ class QTabModel(object):
                 game_history.append((self.get_state_key(observed_state), action, self.get_state_key(next_observed_state)))
 
             winner_token = game.winner_token
-            if winner_token is None:
-                winner_token = Game.EMPTYTOKEN
-            winners[winner_token] = winners[winner_token] + 1
+            if winner_token is None or winner_token == Game.EMPTYTOKEN:
+                ai_wins['DRAW'] = ai_wins['DRAW'] + 1
+            else:
+                if ai_agent_token == winner_token:
+                    ai_wins['WON'] = ai_wins['WON'] + 1
+                else:
+                    ai_wins['LOST'] = ai_wins['LOST'] + 1
 
-            if print_failed_games and winner_token == Game.TOKEN_O:
+            if print_failed_games and winner_token == random_agent_token:
                 print(game.get_string())
 
-        print(f"Games played: {episodes}, draws: {winners[Game.EMPTYTOKEN]}, 'X' wins: {winners[Game.TOKEN_X]}, 'O' wins: {winners[Game.TOKEN_O]}.")
-        return (winners[Game.EMPTYTOKEN], winners[Game.TOKEN_X], winners[Game.TOKEN_O])
+        print(f"AI draws: {ai_wins['DRAW']}, wins: {ai_wins['WON']}, losses: {ai_wins['LOST']}.")
+        return (ai_wins['DRAW'], ai_wins['WON'], ai_wins['LOST'])
 
     def train(self, episodes=10000, epsilon=0.5, validate=False):
         validation_interval = 10000
@@ -87,7 +101,6 @@ class QTabModel(object):
             player_agents = [AIAgent('X', self), AIAgent('O', self)]
             game = Game()
 
-            game.current_player_token = game.starting_random_player()
             current_player_agent = self.get_player_agent(game, player_agents)
 
             is_done = False
@@ -114,7 +127,7 @@ class QTabModel(object):
                     best_next_state_action_value = 0.0
                 else:
                     actions_next = game.get_possible_actions()
-                    (best_next_action, best_next_state_action_value) = current_player_agent.get_action(actions_next, game, epsilon)
+                    (best_next_action, best_next_state_action_value) = current_player_agent.get_action(actions_next, game, 0.0)
 
                 single_game_history.append((observed_state, action, reward, best_next_state_action_value))
 

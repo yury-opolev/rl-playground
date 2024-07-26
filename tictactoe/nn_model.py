@@ -59,9 +59,12 @@ class NNModel(object):
         winners = { Game.EMPTYTOKEN: 0, Game.TOKEN_X: 0, Game.TOKEN_O: 0 }
         for episode in range(episodes):
             game = Game()
-            player_agents = [AIAgent('X', self), RandomAgent('O')]
+
+            if random.choice([0, 1]) == 0:
+                player_agents = [AIAgent('X', self), RandomAgent('O')]
+            else:
+                player_agents = [RandomAgent('X'), AIAgent('O', self)]
             
-            game.current_player_token = game.starting_random_player()
             current_player_agent = self.get_player_agent(game, player_agents)
 
             while not game.is_finished():
@@ -91,7 +94,6 @@ class NNModel(object):
             player_agents = [AIAgent('X', self), AIAgent('O', self)]
             game = Game()
 
-            game.current_player_token = game.starting_random_player()
             current_player_agent = self.get_player_agent(game, player_agents)
 
             is_done = False

@@ -33,4 +33,6 @@ class AIAgent(TicTacToeAgent):
                 a_best = a
 
         # return action and it's value
+        if self.player_token != Game.TOKEN_X:
+            v_best = -1.0 * v_best
         return (a_best, v_best)

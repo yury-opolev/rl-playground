@@ -19,8 +19,10 @@ class Game:
     def reset(self):
         self.grid = { (i,j) : Game.EMPTYTOKEN for i in range(Game.COLS) for j in range(Game.ROWS) }
         self.player_tokens = Game.TOKENS
-        self.current_player_token = None
         self.winner_token = None
+
+        self.starting_player_token = Game.TOKEN_X
+        self.current_player_token = self.starting_player_token
 
         # return (reward, is_done)
         return 0.0, False
@@ -40,12 +42,7 @@ class Game:
                 cell_features[1] = 1.0
             features += cell_features
 
-        if self.starting_player_token == Game.TOKEN_X:
-            features += [1., 0.]
-        else:
-            features += [0., 1.]
-
-        assert len(features) == 20, print("Should be 20 instead of {}".format(len(features)))
+        assert len(features) == 18, print("Should be 18 instead of {}".format(len(features)))
         return features
 
     def check_is_finished(self):
@@ -61,11 +58,6 @@ class Game:
             return -0.99, True
 
         return 0.0, True
-
-    def starting_random_player(self):
-        self.starting_player_token = np.random.choice([Game.TOKEN_X, Game.TOKEN_O])
-        self.current_player_token = self.starting_player_token
-        return self.starting_player_token
 
     def change_player(self):
         if self.current_player_token == Game.TOKEN_X:
