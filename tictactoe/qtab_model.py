@@ -21,7 +21,13 @@ class QTabModel(object):
         x, y = action
         action_index = x * 3 + y
         return action_index
-    
+
+    def get_state_values(self, state):
+        state_key = self.get_state_key(state)
+        if not state_key in self.q_table:
+            self.q_table[state_key] = np.zeros(9)
+        return self.q_table[state_key]
+
     def get_state_action_value(self, state, action):
         state_key = self.get_state_key(state)
         if not state_key in self.q_table:
@@ -40,8 +46,8 @@ class QTabModel(object):
                 result += '-'
         return result
 
-    def get_output(self, state, action):
-        return self.get_state_action_value(state, action)
+    def get_actions_output(self, state):
+        return self.get_state_values(state)
 
     def test(self, episodes=1000, print_failed_games=False):
         ai_wins = { 'WON': 0, 'LOST': 0, 'DRAW': 0 }

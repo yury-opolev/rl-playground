@@ -72,10 +72,14 @@ def main(argv):
         if FLAGS.restore:
             ai_model.restore_weights('models/current.weights.h5')
 
+        print(f"Initial testing:")
+        ai_model.test()
+        print()
+
         batch_count = 10000
         for batch in range(batch_count):
             print(f"training batch: {batch} of {batch_count}")
-            ai_model.train(episodes=10000, epsilon=0.9)
+            ai_model.train(episodes=1000, epsilon=0.9)
             if FLAGS.save:
                 ai_model.save_weights('models/current.weights.h5')
 
@@ -93,15 +97,11 @@ def main(argv):
 
         game = Game()
         if random.choice([0, 1]) == 0:
-            player_agents = [AIAgent('X', ai_model), HumanAgent('O')]
+            player_agents = [AIAgent('X', qtab_model), HumanAgent('O')]
         else:
-            player_agents = [HumanAgent('X'), AIAgent('O', ai_model)]
+            player_agents = [HumanAgent('X'), AIAgent('O', qtab_model)]
 
-        if game.current_player_token == Game.TOKEN_X:
-            current_player_agent = player_agents[0]
-        else:
-            current_player_agent = player_agents[1]
-
+        current_player_agent = player_agents[0]
         while not game.is_finished():
             game.clear_screen()
             game.draw()
@@ -155,7 +155,7 @@ def main(argv):
         if FLAGS.restore:
             qtab_model.restore_weights('models/current.weights.qtab')
 
-        qtab_model.test(episodes=10000, print_failed_games=True)
+        qtab_model.test(episodes=100000, print_failed_games=True)
  
 if __name__ == '__main__':
     app.run(main)
