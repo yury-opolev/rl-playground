@@ -30,14 +30,25 @@ class NNModel(object):
         self.gamma = 0.9
         self.lamda = 0.7
         self.batch_size = 64
+
         self.optimizer = keras.optimizers.SGD(learning_rate=self.learning_rate)
         self.nn_model.compile(optimizer=self.optimizer, loss=keras.losses.MeanSquaredError())
+
+        self.target_nn_model = keras.models.clone_model(self.nn_model)
+        self.target_nn_model.build(input_shape=(18,))
+        self.target_nn_model.compile(optimizer=self.optimizer, loss=keras.losses.MeanSquaredError())
+        self.target_nn_model.set_weights(self.nn_model.get_weights())
 
         self.memory = ReplayMemory(10000)
 
     def get_actions_output(self, state_features):
         input_state = tf.convert_to_tensor([state_features])
         return self.nn_model(input_state)[0].numpy()
+
+    def get_action_index(self, action):
+        x, y = action
+        action_index = x * 3 + y
+        return action_index
 
     def test(self, episodes=1000):
         ai_wins = { 'WON': 0, 'LOST': 0, 'DRAW': 0 }
@@ -76,6 +87,11 @@ class NNModel(object):
         print(f"AI draws: {ai_wins['DRAW']}, wins: {ai_wins['WON']}, losses: {ai_wins['LOST']}.")
 
     def train(self, episodes=10000, epsilon=0.5, validate=False):
+        update_target_network_every = 250
+        learn_every = 10
+        min_buffer_size_to_learn = 1000
+
+        global_steps = 0
         validation_interval = 1000
         for episode in range(episodes):
             if validate and (episode % validation_interval == 0):
@@ -90,6 +106,8 @@ class NNModel(object):
 
             is_done = False
             while not is_done:
+                global_steps += 1
+
                 # get state S 
                 observed_state = game.extract_features()
 
@@ -113,15 +131,28 @@ class NNModel(object):
                     actions_next = game.get_possible_actions()
                     (best_next_action, best_next_state_action_value) = current_player_agent.get_action(actions_next, game, 0.0)
 
-                self.memory.push([observed_state], action, reward, [next_observed_state], best_next_state_action_value)
+                self.memory.push([observed_state], action, reward, [next_observed_state], best_next_state_action_value, (current_player_agent.player_token != Game.TOKEN_X))
 
                 # Q(S, A) <- Q(S, A) + alpha * ((R  + gamma * Q(S',A')) - Q(S, A))
+                if global_steps % learn_every == 0:
+                    self.optimize_model(batch_size=128)
+
+                if global_steps % update_target_network_every == 0:
+                    self.optimize_model(batch_size=128)
+
+            # Q(S, A) <- Q(S, A) + alpha * ((R  + gamma * Q(S',A')) - Q(S, A))
+            if global_steps % learn_every == 0 and len(self.memory) >= min_buffer_size_to_learn:
                 self.optimize_model(batch_size=128)
-                # self.update_weights(observed_state, action, reward, best_next_state_action_value)
+
+            if global_steps % update_target_network_every == 0:
+                self.update_target_network()
 
         print(f"Final testing:")
         self.test()
         print()
+
+    def update_target_network(self):
+        self.target_nn_model.set_weights(self.nn_model.get_weights())
 
     def optimize_model(self, batch_size: int):
         if len(self.memory) < batch_size:
@@ -130,47 +161,27 @@ class NNModel(object):
         transitions = self.memory.sample(batch_size)
         batch = Transition(*zip(*transitions))
 
-        # Вычислить маску нефинальных состояний и соединить элементы батча
-        # (финальным состоянием должно быть то, после которого моделирование закончилось)
-
-        #non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-        #                                   batch.next_state)), device=device, dtype=torch.bool)
-        
-        #non_final_next_states = torch.cat([s for s in batch.next_state
-        #                                            if s is not None])
-        
-        # Собираем батчи для состояний, действий и наград
         state_batch = tf.concat(batch.state, axis=0)
-        action_batch = tf.concat(batch.action, axis=0)
-        reward_batch = tf.concat(batch.reward, axis=0)
 
-        # Вычислить Q(s_t, a) - модель вычисляет Q(s_t), 
-        # затем мы выбираем столбцы предпринятых действий. 
-        # Это те действия, которые были бы предприняты для каждого состояния партии в соответствии с policy_net
-        state_action_values = policy_net(state_batch).gather(1, action_batch)
+        expected_state_action_values = []
+        for transition in transitions:
+            current_output = self.get_actions_output(transition.state[0])
+            expected_output = current_output.copy()
+            action_index = self.get_action_index(transition.action)
 
-        # Вычислить V(s_{t+1}) для всех следующих состояний.
-        # Ожидаемые значения действий для не_финальных_следующих_состояний вычисляются 
-        # на основе "старшей" целевой_сети; выбирается их наилучшее вознаграждение с помощью max(1)[0].
-        # Это объединяется по маске, так что мы будем иметь либо ожидаемое значение состояния, 
-        # либо 0, если состояние было финальным.
-        next_state_values = torch.zeros(batch_size, device=device)
-        with torch.no_grad():
-            next_state_values[non_final_mask] = target_net(non_final_next_states).max(1)[0]
-        # Вычисляем ожидаемые Q значения
-        expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+            input_next_state = tf.convert_to_tensor([transition.next_state[0]])
+            next_state_action_values = self.target_nn_model(input_next_state)[0].numpy()
+            # TODO: remove illegal moves
+            if transition.is_minimizing_value:
+                next_state_value = np.min(next_state_action_values)
+            else:
+                next_state_value = np.max(next_state_action_values)
 
-        # Объединяем все в общий лосс
-        criterion = nn.SmoothL1Loss()
-        loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
+            expected_output[action_index] = transition.reward + self.gamma * next_state_value
+            expected_state_action_values.append([expected_output])
 
-        # Готовим градиент
-        optimizer.zero_grad()
-        loss.backward()
-        # Обрезаем значения градиента - проблемма исчезающего/взрывающего градиента
-        torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
-        
-        optimizer.step()
+        expected_state_action_values_batch = tf.concat(expected_state_action_values, axis=0)
+        self.nn_model.fit(state_batch, expected_state_action_values_batch, verbose=0)
 
     def update_weights(self, state, action, reward, next_state_action_value):
         with tf.GradientTape() as tape:
@@ -182,15 +193,17 @@ class NNModel(object):
             weight = self.nn_model.trainable_weights[i]
             weight.assign_add(self.learning_rate * tf.reshape(delta, shape=(1,)) * gradient)
 
-    def restore_weights(self, path):
+    def restore_weights(self, path, target_path):
         weights_filepath = Path(path)
         if weights_filepath.exists():
             print(f'Restoring weights: {path}')
             self.nn_model.load_weights(path)
+            self.target_nn_model.load_weights(target_path)
 
-    def save_weights(self, path):
+    def save_weights(self, path, target_path):
         print(f'Saving weights: {path}')
         self.nn_model.save_weights(path)
+        self.target_nn_model.save_weights(target_path)
 
     def get_player_agent(self, game, player_agents):
         if game.current_player_token == Game.TOKEN_X:

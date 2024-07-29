@@ -28,7 +28,7 @@ def main(argv):
     if FLAGS.mode == 'play':
         ai_model = NNModel()
         if FLAGS.restore:
-            ai_model.restore_weights('models/current.weights.h5')
+            ai_model.restore_weights('models/current.weights.h5', 'models/current.target.weights.h5')
 
         game = Game()
 
@@ -70,7 +70,7 @@ def main(argv):
     if FLAGS.mode == 'train':
         ai_model = NNModel()
         if FLAGS.restore:
-            ai_model.restore_weights('models/current.weights.h5')
+            ai_model.restore_weights('models/current.weights.h5', 'models/current.target.weights.h5')
 
         print(f"Initial testing:")
         ai_model.test()
@@ -81,12 +81,12 @@ def main(argv):
             print(f"training batch: {batch} of {batch_count}")
             ai_model.train(episodes=1000, epsilon=0.9)
             if FLAGS.save:
-                ai_model.save_weights('models/current.weights.h5')
+                ai_model.save_weights('models/current.weights.h5', 'models/current.target.weights.h5')
 
     if FLAGS.mode == 'test':
         ai_model = NNModel()
         if FLAGS.restore:
-            ai_model.restore_weights('models/current.weights.h5')
+            ai_model.restore_weights('models/current.weights.h5', 'models/current.target.weights.h5')
 
         ai_model.test()
 
