@@ -4,6 +4,8 @@ import keras
 import numpy as np
 import pandas as pd
 
+from tqdm import tqdm
+
 from pathlib import Path
 from keras import layers
 from keras import models
@@ -21,7 +23,10 @@ class NNModel(object):
             layers.Dense(18, activation=keras.activations.leaky_relu,
                          kernel_initializer=initializers.RandomNormal(stddev=0.05),
                          bias_initializer=initializers.RandomNormal(stddev=0.05)),
-            layers.Dense(9, activation=keras.activations.tanh,
+            layers.Dense(18, activation=keras.activations.leaky_relu,
+                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                         bias_initializer=initializers.RandomNormal(stddev=0.05)),
+            layers.Dense(9, activation=keras.activations.linear,
                          kernel_initializer=initializers.RandomNormal(stddev=0.05),
                          bias_initializer=initializers.RandomNormal(stddev=0.05))
         ])
@@ -32,14 +37,15 @@ class NNModel(object):
         self.batch_size = 64
 
         self.optimizer = keras.optimizers.SGD(learning_rate=self.learning_rate)
-        self.nn_model.compile(optimizer=self.optimizer, loss=keras.losses.MeanSquaredError())
 
         self.target_nn_model = keras.models.clone_model(self.nn_model)
-        self.target_nn_model.build(input_shape=(18,))
-        self.target_nn_model.compile(optimizer=self.optimizer, loss=keras.losses.MeanSquaredError())
+        self.target_nn_model.build()
         self.target_nn_model.set_weights(self.nn_model.get_weights())
 
         self.memory = ReplayMemory(10000)
+
+    def init_eligiblity_trace(self):
+        self.eligibility_traces = [tf.Variable(tf.zeros(weights.shape), trainable=False) for weights in self.nn_model.trainable_weights]
 
     def get_actions_output(self, state_features):
         input_state = tf.convert_to_tensor([state_features])
@@ -93,8 +99,8 @@ class NNModel(object):
 
         global_steps = 0
         validation_interval = 1000
-        for episode in range(episodes):
-            if validate and (episode % validation_interval == 0):
+        for episode in tqdm(range(episodes)):
+            if validate and (episode > 0) and (episode % validation_interval == 0):
                 print(f"Testing after {episode} episodes:")
                 self.test()
                 print()
@@ -103,6 +109,8 @@ class NNModel(object):
             game = Game()
 
             current_player_agent = self.get_player_agent(game, player_agents)
+
+            self.init_eligiblity_trace()
 
             is_done = False
             while not is_done:
@@ -126,26 +134,20 @@ class NNModel(object):
 
                 # get action A' (and Q(S',A'))
                 if is_done:
+                    actions_next = []
                     best_next_state_action_value = 0.0
                 else:
                     actions_next = game.get_possible_actions()
                     (best_next_action, best_next_state_action_value) = current_player_agent.get_action(actions_next, game, 0.0)
 
-                self.memory.push([observed_state], action, reward, [next_observed_state], best_next_state_action_value, (current_player_agent.player_token != Game.TOKEN_X))
+                self.memory.push([observed_state], action, reward, [next_observed_state], best_next_state_action_value, (current_player_agent.player_token != Game.TOKEN_X), actions_next)
 
                 # Q(S, A) <- Q(S, A) + alpha * ((R  + gamma * Q(S',A')) - Q(S, A))
-                if global_steps % learn_every == 0:
+                if global_steps % learn_every == 0 and len(self.memory) >= min_buffer_size_to_learn:
                     self.optimize_model(batch_size=128)
 
                 if global_steps % update_target_network_every == 0:
-                    self.optimize_model(batch_size=128)
-
-            # Q(S, A) <- Q(S, A) + alpha * ((R  + gamma * Q(S',A')) - Q(S, A))
-            if global_steps % learn_every == 0 and len(self.memory) >= min_buffer_size_to_learn:
-                self.optimize_model(batch_size=128)
-
-            if global_steps % update_target_network_every == 0:
-                self.update_target_network()
+                    self.update_target_network()
 
         print(f"Final testing:")
         self.test()
@@ -164,24 +166,45 @@ class NNModel(object):
         state_batch = tf.concat(batch.state, axis=0)
 
         expected_state_action_values = []
+        action_indexes = []
         for transition in transitions:
             current_output = self.get_actions_output(transition.state[0])
             expected_output = current_output.copy()
             action_index = self.get_action_index(transition.action)
+            action_indexes.append(action_index)
 
             input_next_state = tf.convert_to_tensor([transition.next_state[0]])
+            next_actions = transition.next_actions
             next_state_action_values = self.target_nn_model(input_next_state)[0].numpy()
-            # TODO: remove illegal moves
-            if transition.is_minimizing_value:
-                next_state_value = np.min(next_state_action_values)
+
+            legal_next_state_action_values = []
+            for next_action in next_actions:
+                legal_next_action_index = self.get_action_index(next_action)
+                legal_next_state_action_values.append(next_state_action_values[legal_next_action_index])
+
+            if len(legal_next_state_action_values) > 0:
+                if transition.is_minimizing_value:
+                    next_state_value = np.min(legal_next_state_action_values)
+                else:
+                    next_state_value = np.max(legal_next_state_action_values)
             else:
-                next_state_value = np.max(next_state_action_values)
+                next_state_value = 0.0
 
             expected_output[action_index] = transition.reward + self.gamma * next_state_value
             expected_state_action_values.append([expected_output])
 
         expected_state_action_values_batch = tf.concat(expected_state_action_values, axis=0)
-        self.nn_model.fit(state_batch, expected_state_action_values_batch, verbose=0)
+
+        action_index = 0
+
+        with tf.GradientTape() as tape:
+            predicted_values = self.nn_model(state_batch, training=True)
+            diff = tf.subtract(expected_state_action_values_batch, predicted_values)
+            loss = tf.abs(diff)
+
+        gradients = tape.gradient(loss, self.nn_model.trainable_weights)
+        self.optimizer.apply_gradients(zip(gradients, self.nn_model.trainable_variables))
+        #self.nn_model.fit(state_batch, expected_state_action_values_batch, verbose=0)
 
     def update_weights(self, state, action, reward, next_state_action_value):
         with tf.GradientTape() as tape:
@@ -195,7 +218,8 @@ class NNModel(object):
 
     def restore_weights(self, path, target_path):
         weights_filepath = Path(path)
-        if weights_filepath.exists():
+        target_weights_filepath = Path(target_path)
+        if weights_filepath.exists() and target_weights_filepath.exists():
             print(f'Restoring weights: {path}')
             self.nn_model.load_weights(path)
             self.target_nn_model.load_weights(target_path)

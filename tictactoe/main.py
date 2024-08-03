@@ -76,10 +76,10 @@ def main(argv):
         ai_model.test()
         print()
 
-        batch_count = 10000
+        batch_count = 1000
         for batch in range(batch_count):
             print(f"training batch: {batch} of {batch_count}")
-            ai_model.train(episodes=1000, epsilon=0.9)
+            ai_model.train(episodes=10000, epsilon=0.9, validate=True)
             if FLAGS.save:
                 ai_model.save_weights('models/current.weights.h5', 'models/current.target.weights.h5')
 
