@@ -14,7 +14,7 @@ class AIAgent(TicTacToeAgent):
         action_index = x * 3 + y
         return action_index
 
-    def get_action(self, actions, game, epsilon=0.0):
+    def get_action(self, actions, game, epsilon=0.0, verbose=False):
         v_best = None
         a_best = None
         

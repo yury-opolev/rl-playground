@@ -6,7 +6,7 @@ class RandomAgent(TicTacToeAgent):
         self.player_token = player_token
         self.name = 'Random'
 
-    def get_action(self, actions, game=None, epsilon=0.0):
+    def get_action(self, actions, game=None, epsilon=0.0, versbose=False):
         if not actions:
             return None, None
         

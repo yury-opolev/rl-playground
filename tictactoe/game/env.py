@@ -150,3 +150,24 @@ class Game:
         result +=  '  └───┴───┴───┘\n'
         result +=  '    0   1   2  '
         return result
+
+    @staticmethod
+    def get_history_string(game_history):
+        line_1 = ""
+        line_2 = ""
+        line_3 = ""
+
+        for game_history_step in game_history:
+            state, action, next_state = game_history_step
+            line_1 += f"{state[0:3]}   "
+            line_2 += f"{state[3:6]} > "
+            line_3 += f"{state[6:9]}   "
+
+        line_1 += f"{next_state[0:3]}"
+        line_2 += f"{next_state[3:6]}"
+        line_3 += f"{next_state[6:9]}"
+
+        result  = f'{line_1}\n'
+        result += f'{line_2}\n'
+        result += f'{line_3}\n'
+        return result

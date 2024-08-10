@@ -9,6 +9,7 @@ from pathlib import Path
 from game.env import Game
 from game.agents.ai_agent_stateval import AIAgentStateVal
 from game.agents.random_agent import RandomAgent
+from game.agents.recorded_agent import RecordedAgent
 
 class QTabModelStateVal(object):
     def __init__(self):
@@ -16,6 +17,8 @@ class QTabModelStateVal(object):
 
         self.learning_rate = 0.001 #0.001
         self.gamma = 1.0
+
+        self.monitored_states = ['XO--O---X', 'X-O-O---X', 'X--OO---X', 'X---OO--X', 'X---O-O-X', 'X---O--OX']
 
     def get_state_value(self, state):
         state_key = self.get_state_key(state)
@@ -39,7 +42,8 @@ class QTabModelStateVal(object):
         for episode in range(episodes):
             game = Game()
 
-            if random.choice([0, 1]) == 0:
+            random_agent_is_second = random.choice([0, 1]) == 0
+            if random_agent_is_second:
                 player_agents = [AIAgentStateVal('X', self), RandomAgent('O')]
                 ai_agent_token = Game.TOKEN_X
                 random_agent_token = Game.TOKEN_O
@@ -76,7 +80,23 @@ class QTabModelStateVal(object):
                     ai_wins['LOST'] = ai_wins['LOST'] + 1
 
             if print_failed_games and winner_token == random_agent_token:
-                print(game.get_string())
+                print(Game.get_history_string(game_history))
+                # "replay" game with verbose output
+                game = Game()
+                game.starting_player_token = Game.TOKEN_X
+                game.current_player_token = game.starting_player_token
+                if random_agent_is_second:
+                    player_agents = [AIAgentStateVal('X', self), RecordedAgent('O', game_history)]
+                else:
+                    player_agents = [RecordedAgent('X', game_history), AIAgentStateVal('O', self)]
+                current_player_agent = self.get_player_agent(game, player_agents)
+                while not game.is_finished():
+                    observed_state = game.extract_features()
+                    actions = game.get_possible_actions()
+                    action, value = current_player_agent.get_action(actions, game, verbose=True)
+                    game.take_action(action, game.current_player_token)
+                    game.change_player()
+                    current_player_agent = self.get_player_agent(game, player_agents)
 
         print(f"AI draws: {ai_wins['DRAW']}, wins: {ai_wins['WON']}, losses: {ai_wins['LOST']}.")
         return (ai_wins['DRAW'], ai_wins['WON'], ai_wins['LOST'])
@@ -102,6 +122,7 @@ class QTabModelStateVal(object):
                 # get action A (and Q(S, A)) 
                 actions = game.get_possible_actions()
                 (action, action_value) = current_player_agent.get_action(actions, game, epsilon)
+                (best_action, best_action_value) = current_player_agent.get_action(actions, game, epsilon=0.0)
 
                 # get R
                 reward, is_done = game.step(action, game.grid, game.current_player_token)
@@ -116,14 +137,15 @@ class QTabModelStateVal(object):
                 if is_done:
                     next_state_value = 0.0
                 else:
-                    next_state_value = self.get_state_value(next_observed_state)
+                    next_state_value = best_action_value
+                    #next_state_value = self.get_state_value(next_observed_state)
 
                 # V(S) <- V(S) + alpha * ((R  + gamma * V(S')) - V(S))
-                self.update_weights(observed_state, reward, next_state_value)
+                self.update_weights(observed_state, reward, next_state_value, next_observed_state)
 
             # update terminal state value
             # V(S) <- V(S) + alpha * ((R  + gamma * V(S')) - V(S))
-            self.update_weights(next_observed_state, reward, next_state_value)
+            self.update_weights(next_observed_state, reward, next_state_value, next_observed_state)
 
         print(f"Final testing:")
         (draw, win_x, win_o) = self.test()
@@ -131,11 +153,14 @@ class QTabModelStateVal(object):
 
         return (draw, win_x, win_o)
 
-    def update_weights(self, state, reward, next_state_value):
+    def update_weights(self, state, reward, next_state_value, next_state):
         # V(S) <- V(S) + alpha * ((R  + gamma * V(S')) - V(S))
         state_key = self.get_state_key(state)
         state_value = self.get_state_value(state)
         self.q_table[state_key] = state_value + self.learning_rate * (reward + self.gamma * next_state_value - state_value)
+
+        if state_key in self.monitored_states:
+            print(f"CHANGING '{state_key}' value {state_value} -> {self.q_table[state_key]}, next state {self.get_state_key(next_state)} value {next_state_value}, reward {reward}.")
 
     def restore_weights(self, path):
         existing_modelfile = Path(path)

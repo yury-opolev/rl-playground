@@ -192,7 +192,7 @@ def main(argv):
 
         if game.winner_token == Game.TOKEN_X:
             print("X wins!")
-        if game.winner_token == Game.TOKEN_O:
+        elif game.winner_token == Game.TOKEN_O:
             print("O wins!")
         else:
             print("DRAW.")
@@ -225,7 +225,7 @@ def main(argv):
         if FLAGS.restore:
             svaltab_model.restore_weights('models/sval-current.weights.qtab')
 
-        svaltab_model.test(episodes=10000, print_failed_games=False)
+        svaltab_model.test(episodes=10000, print_failed_games=True)
  
 if __name__ == '__main__':
     app.run(main)
