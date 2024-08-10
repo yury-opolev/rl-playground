@@ -2,7 +2,6 @@ import random
 import tensorflow as tf
 import keras
 import numpy as np
-import pandas as pd
 
 from tqdm import tqdm
 
@@ -12,9 +11,8 @@ from keras import models
 from keras import initializers
 
 from game.env import Game
-from game.agents.ai_agent import AIAgent
+from game.agents.ai_agent_stateval import AIAgentStateVal
 from game.agents.random_agent import RandomAgent
-from replay_memory import Transition, ReplayMemory
 
 class NNModel(object):
     def __init__(self):
@@ -26,10 +24,7 @@ class NNModel(object):
             layers.Dense(18, activation=keras.activations.leaky_relu,
                          kernel_initializer=initializers.RandomNormal(stddev=0.05),
                          bias_initializer=initializers.RandomNormal(stddev=0.05)),
-            layers.Dense(18, activation=keras.activations.leaky_relu,
-                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
-                         bias_initializer=initializers.RandomNormal(stddev=0.05)),
-            layers.Dense(9, activation=keras.activations.linear,
+            layers.Dense(1, activation=keras.activations.linear,
                          kernel_initializer=initializers.RandomNormal(stddev=0.05),
                          bias_initializer=initializers.RandomNormal(stddev=0.05))
         ])
@@ -37,27 +32,15 @@ class NNModel(object):
         self.learning_rate = 0.001
         self.gamma = 0.9
         self.lamda = 0.7
-        self.batch_size = 128
 
         self.optimizer = keras.optimizers.SGD(learning_rate=self.learning_rate)
 
-        self.target_nn_model = keras.models.clone_model(self.nn_model)
-        self.target_nn_model.build()
-        self.target_nn_model.set_weights(self.nn_model.get_weights())
+    #def init_eligiblity_trace(self):
+    #    self.eligibility_traces = [tf.Variable(tf.zeros(weights.shape), trainable=False) for weights in self.nn_model.trainable_weights]
 
-        self.memory = ReplayMemory(10000)
-
-    def init_eligiblity_trace(self):
-        self.eligibility_traces = [tf.Variable(tf.zeros(weights.shape), trainable=False) for weights in self.nn_model.trainable_weights]
-
-    def get_actions_output(self, state_features):
+    def get_output(self, state_features):
         input_state = tf.convert_to_tensor([state_features])
         return self.nn_model(input_state)[0].numpy()
-
-    def get_action_index(self, action):
-        x, y = action
-        action_index = x * 3 + y
-        return action_index
 
     def test(self, episodes=1000):
         ai_wins = { 'WON': 0, 'LOST': 0, 'DRAW': 0 }
@@ -108,7 +91,7 @@ class NNModel(object):
                 self.test()
                 print()
 
-            player_agents = [AIAgent('X', self), AIAgent('O', self)]
+            player_agents = [AIAgentStateVal('X', self), AIAgentStateVal('O', self)]
             game = Game()
 
             current_player_agent = self.get_player_agent(game, player_agents)
