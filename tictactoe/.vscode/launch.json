@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "./main.py",
             "console": "integratedTerminal",
-            "args": "--mode=sval_play --restore --save"
+            "args": "--mode=svalnn_train --restore --save"
         }
     ]
 }

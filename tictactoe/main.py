@@ -7,6 +7,7 @@ import random
 print(">>> Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
 from nn_model import NNModel
+from nn_model_stateval import NNModelStateVal
 from qtab_model import QTabModel
 from qtab_model_stateval import QTabModelStateVal
 from game.env import Game
@@ -226,6 +227,69 @@ def main(argv):
             svaltab_model.restore_weights('models/sval-current.weights.qtab')
 
         svaltab_model.test(episodes=10000, print_failed_games=True)
- 
+
+    if FLAGS.mode == 'svalnn_play':
+        svalnn_model = NNModelStateVal()
+        if FLAGS.restore:
+            svalnn_model.restore_weights(f'models/sval-nn.weights.h5')
+
+        game = Game()
+        if random.choice([0, 1]) == 0:
+            player_agents = [AIAgentStateVal('X', svalnn_model), HumanAgent('O')]
+        else:
+            player_agents = [HumanAgent('X'), AIAgentStateVal('O', svalnn_model)]
+
+        current_player_agent = player_agents[0]
+        while not game.is_finished():
+            game.clear_screen()
+            game.draw()
+
+            actions = game.get_possible_actions()
+            action_value = current_player_agent.get_action(actions, game)
+            action, value = action_value
+            game.take_action(action, game.current_player_token)
+
+            game.change_player()
+            if game.current_player_token == Game.TOKEN_X:
+                current_player_agent = player_agents[0]
+            else:
+                current_player_agent = player_agents[1]
+
+        game.clear_screen()
+        game.draw()
+
+        if game.winner_token == Game.TOKEN_X:
+            print("X wins!")
+        elif game.winner_token == Game.TOKEN_O:
+            print("O wins!")
+        else:
+            print("DRAW.")
+
+    if FLAGS.mode == 'svalnn_train':
+        svalnn_model = NNModelStateVal()
+        if FLAGS.restore:
+            svalnn_model.restore_weights('models/sval-nn.weights.h5')
+
+        batch_count = 10000
+        for batch in range(batch_count):
+            print(f"training batch: {batch} of {batch_count}")
+            (test_draw, test_win_x, test_win_o) = svalnn_model.train(episodes=1000, epsilon=1.0, validate=True)
+            if FLAGS.save:
+                svalnn_model.save_weights('models/sval-nn.weights.h5')
+
+            if test_win_o == 0:
+                print(">>> Extensive testing, as test results show 0 'O' win. <<<")
+                (test_draw, test_win_x, test_win_o) = svalnn_model.test(episodes=10000)
+                if test_win_o == 0:
+                    print(">>> Extensive test results show 0 'O' win, exiting training. <<<")
+                    break
+
+    if FLAGS.mode == 'svalnn_test':
+        svalnn_model = NNModelStateVal()
+        if FLAGS.restore:
+            svalnn_model.restore_weights('models/sval-nn.weights.h5')
+
+        svalnn_model.test(episodes=10000, print_failed_games=True)
+
 if __name__ == '__main__':
     app.run(main)
