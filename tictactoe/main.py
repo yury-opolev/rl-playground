@@ -65,7 +65,7 @@ def main(argv):
 
         if game.winner_token == Game.TOKEN_X:
             print("X wins!")
-        if game.winner_token == Game.TOKEN_O:
+        elif game.winner_token == Game.TOKEN_O:
             print("O wins!")
         else:
             print("DRAW.")
@@ -125,7 +125,7 @@ def main(argv):
 
         if game.winner_token == Game.TOKEN_X:
             print("X wins!")
-        if game.winner_token == Game.TOKEN_O:
+        elif game.winner_token == Game.TOKEN_O:
             print("O wins!")
         else:
             print("DRAW.")
