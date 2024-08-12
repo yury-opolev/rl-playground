@@ -17,9 +17,25 @@ from game.agents.recorded_agent import RecordedAgent
 
 class NNModelStateVal(object):
     def __init__(self):
+        # self.nn_model = models.Sequential([
+        #     layers.Input(shape=(18,)),
+        #     layers.Dense(18, activation=keras.activations.leaky_relu,
+        #                  kernel_initializer=initializers.RandomNormal(stddev=0.05),
+        #                  bias_initializer=initializers.RandomNormal(stddev=0.05)),
+        #     layers.Dense(18, activation=keras.activations.leaky_relu,
+        #                  kernel_initializer=initializers.RandomNormal(stddev=0.05),
+        #                  bias_initializer=initializers.RandomNormal(stddev=0.05)),
+        #     layers.Dense(1, activation=keras.activations.linear,
+        #                  kernel_initializer=initializers.RandomNormal(stddev=0.05),
+        #                  bias_initializer=initializers.RandomNormal(stddev=0.05))
+        # ])
+
         self.nn_model = models.Sequential([
             layers.Input(shape=(18,)),
-            layers.Dense(18, activation=keras.activations.leaky_relu,
+            layers.Dense(36, activation=keras.activations.leaky_relu,
+                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                         bias_initializer=initializers.RandomNormal(stddev=0.05)),
+            layers.Dense(36, activation=keras.activations.leaky_relu,
                          kernel_initializer=initializers.RandomNormal(stddev=0.05),
                          bias_initializer=initializers.RandomNormal(stddev=0.05)),
             layers.Dense(18, activation=keras.activations.leaky_relu,
