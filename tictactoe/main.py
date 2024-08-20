@@ -74,7 +74,7 @@ def main(argv):
     if FLAGS.mode == 'train':
         ai_model = NNModel()
         if FLAGS.restore:
-            ai_model.restore_weights(f'models/{FLAGS.savefileprefix}.weights.h5', f'models/{FLAGS.savefileprefix}.target.weights.h5')
+            ai_model.restore_weights(f'models/{FLAGS.savefileprefix}.weights.h5')
 
         print(f"Initial testing:")
         ai_model.test()
@@ -83,14 +83,21 @@ def main(argv):
         batch_count = 1000
         for batch in range(batch_count):
             print(f"training batch: {batch} of {batch_count}")
-            ai_model.train(episodes=10000, epsilon=1.0, validate=True)
+            (draw, won_ai, lost_ai) = ai_model.train(episodes=10000, epsilon=1.0, validate=True)
             if FLAGS.save:
-                ai_model.save_weights(f'models/{FLAGS.savefileprefix}.weights.h5', f'models/{FLAGS.savefileprefix}.target.weights.h5')
+                ai_model.save_weights(f'models/{FLAGS.savefileprefix}.weights.h5')
+
+            if lost_ai == 0:
+                print(">>> Extensive testing, as test results show 0 AI losses. <<<")
+                (draw, won_ai, lost_ai) = ai_model.test(episodes=10000)
+                if lost_ai == 0:
+                    print(">>> Extensive test results show 0 AI losses, exiting training. <<<")
+                    break
 
     if FLAGS.mode == 'test':
         ai_model = NNModel()
         if FLAGS.restore:
-            ai_model.restore_weights(f'models/{FLAGS.savefileprefix}.weights.h5', f'models/{FLAGS.savefileprefix}.target.weights.h5')
+            ai_model.restore_weights(f'models/{FLAGS.savefileprefix}.weights.h5')
 
         ai_model.test()
 

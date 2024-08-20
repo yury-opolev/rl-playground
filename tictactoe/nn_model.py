@@ -89,14 +89,16 @@ class NNModel(object):
                     ai_wins['LOST'] = ai_wins['LOST'] + 1
 
         print(f"AI draws: {ai_wins['DRAW']}, wins: {ai_wins['WON']}, losses: {ai_wins['LOST']}.")
+        return (ai_wins['DRAW'], ai_wins['WON'], ai_wins['LOST'])
 
     def train(self, episodes=10000, epsilon=0.5, validate=False):
         global_steps = 0
         validation_interval = 1000
+        test_episodes_count = 1000
         for episode in range(episodes):
             if validate and (episode > 0) and (episode % validation_interval == 0):
-                print(f"Testing after {episode} episodes:")
-                self.test()
+                print(f"Testing after {episode} episodes ({test_episodes_count} test episodes):")
+                self.test(episodes=test_episodes_count)
                 print()
 
             player_agents = [AIAgent('X', self), AIAgent('O', self)]
@@ -137,9 +139,11 @@ class NNModel(object):
                 # Q(S, A) <- Q(S, A) + alpha * ((R  + gamma * Q(S',A')) - Q(S, A))
                 self.update_weights(observed_state, self.get_action_index(action), reward, best_next_state_action_value)
 
-        print(f"Final testing:")
-        self.test()
+        print(f"Final testing ({test_episodes_count} test episodes):")
+        (draw, won_ai, lost_ai) = self.test(episodes=test_episodes_count)
         print()
+
+        return (draw, won_ai, lost_ai)
 
     def get_action_index(self, action):
         x, y = action
@@ -164,7 +168,7 @@ class NNModel(object):
             print(f'Restoring weights: {path}')
             self.nn_model.load_weights(path)
 
-    def save_weights(self, path, target_path):
+    def save_weights(self, path):
         print(f'Saving weights: {path}')
         self.nn_model.save_weights(path)
 
