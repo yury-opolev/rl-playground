@@ -16,30 +16,44 @@ from replay_memory import Transition, ReplayMemory
 
 class NNModel(object):
     def __init__(self):
-        self.nn_model = models.Sequential([
-            layers.Input(shape=(18,)),
-            layers.Dense(36, activation=keras.activations.leaky_relu,
-                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
-                         bias_initializer=initializers.RandomNormal(stddev=0.05)),
-            layers.Dense(36, activation=keras.activations.leaky_relu,
-                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
-                         bias_initializer=initializers.RandomNormal(stddev=0.05)),
-            layers.Dense(18, activation=keras.activations.leaky_relu,
-                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
-                         bias_initializer=initializers.RandomNormal(stddev=0.05)),
-            layers.Dense(9, activation=keras.activations.linear,
-                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
-                         bias_initializer=initializers.RandomNormal(stddev=0.05))
-        ])
-
+        self.create_model()
         self.learning_rate = 0.001
         self.gamma = 0.9
-        # self.lamda = 0.7
+        self.lamda = 0.7
 
         self.optimizer = keras.optimizers.SGD(learning_rate=self.learning_rate)
+        self.use_eligibility_traces = True
 
-    # def init_eligiblity_trace(self):
-    #     self.eligibility_traces = [tf.Variable(tf.zeros(weights.shape), trainable=False) for weights in self.nn_model.trainable_weights]
+    def create_model(self):
+        # non-sequential model
+        inputs = layers.Input(shape=(18,))
+        x_1 = layers.Dense(36, activation=keras.activations.leaky_relu,
+                        kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                        bias_initializer=initializers.RandomNormal(stddev=0.05))(inputs)
+
+        output_layers = []
+        for output_index in range(9):
+            x_2 = layers.Dense(36, activation=keras.activations.leaky_relu,
+                        kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                        bias_initializer=initializers.RandomNormal(stddev=0.05))(x_1)
+            x_2 = layers.Dense(18, activation=keras.activations.leaky_relu,
+                        kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                        bias_initializer=initializers.RandomNormal(stddev=0.05))(x_2)
+            x_2 = layers.Dense(18, activation=keras.activations.leaky_relu,
+                        kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                        bias_initializer=initializers.RandomNormal(stddev=0.05))(x_2)
+            output = layers.Dense(1, activation=keras.activations.linear,
+                        kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                        bias_initializer=initializers.RandomNormal(stddev=0.05))(x_2)
+            output_layers.append(output)
+
+        outputs = keras.layers.Concatenate()(output_layers)
+        self.nn_model = keras.Model(inputs=inputs, outputs=outputs, name="nn_model")
+
+    def init_eligiblity_trace(self):
+        if not self.use_eligibility_traces:
+            return
+        self.eligibility_traces = [tf.Variable(tf.zeros(weights.shape), trainable=False) for weights in self.nn_model.trainable_weights]
 
     def get_actions_output(self, state_features):
         input_state = tf.convert_to_tensor([state_features])
@@ -106,7 +120,7 @@ class NNModel(object):
 
             current_player_agent = self.get_player_agent(game, player_agents)
 
-            # self.init_eligiblity_trace()
+            self.init_eligiblity_trace()
 
             is_done = False
             while not is_done:
@@ -157,10 +171,19 @@ class NNModel(object):
             indices = tf.constant([[ 0, action_index ]])
             updates = tf.constant([ reward + self.gamma * next_best_state_action_value ], dtype=tf.float32)
             expected_values = tf.stop_gradient(tf.tensor_scatter_nd_update(predicted_values, indices, updates))
-            loss = tf.abs(expected_values - predicted_values)
-            gradients = tape.gradient(loss, self.nn_model.trainable_weights)
+            expected_action_value = expected_values[0][action_index]
+            predicted_action_value = predicted_values[0][action_index]
+            loss = tf.abs(expected_action_value - predicted_action_value)
 
-        self.optimizer.apply_gradients(zip(gradients, self.nn_model.trainable_weights))
+        if self.use_eligibility_traces:
+            gradients = tape.gradient(predicted_action_value, self.nn_model.trainable_weights)
+            for i, gradient in enumerate(gradients):
+                self.eligibility_traces[i].assign(self.lamda * self.eligibility_traces[i] + gradient)
+                weight = self.nn_model.trainable_weights[i]
+                weight.assign_add(self.learning_rate * tf.reshape(expected_action_value - predicted_action_value, shape=(1,)) * self.eligibility_traces[i])
+        else:
+            gradients = tape.gradient(loss, self.nn_model.trainable_weights)
+            self.optimizer.apply_gradients(zip(gradients, self.nn_model.trainable_weights))
 
     def restore_weights(self, path):
         weights_filepath = Path(path)

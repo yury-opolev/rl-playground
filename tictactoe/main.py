@@ -32,7 +32,7 @@ def main(argv):
     if FLAGS.mode == 'play':
         ai_model = NNModel()
         if FLAGS.restore:
-            ai_model.restore_weights(f'models/{FLAGS.savefileprefix}.weights.h5', f'models/{FLAGS.savefileprefix}.target.weights.h5')
+            ai_model.restore_weights(f'models/{FLAGS.savefileprefix}.weights.h5')
 
         game = Game()
 
