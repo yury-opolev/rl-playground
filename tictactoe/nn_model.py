@@ -25,30 +25,21 @@ class NNModel(object):
         self.use_eligibility_traces = True
 
     def create_model(self):
-        # non-sequential model
-        inputs = layers.Input(shape=(18,))
-        x_1 = layers.Dense(36, activation=keras.activations.leaky_relu,
-                        kernel_initializer=initializers.RandomNormal(stddev=0.05),
-                        bias_initializer=initializers.RandomNormal(stddev=0.05))(inputs)
-
-        output_layers = []
-        for output_index in range(9):
-            x_2 = layers.Dense(36, activation=keras.activations.leaky_relu,
-                        kernel_initializer=initializers.RandomNormal(stddev=0.05),
-                        bias_initializer=initializers.RandomNormal(stddev=0.05))(x_1)
-            x_2 = layers.Dense(18, activation=keras.activations.leaky_relu,
-                        kernel_initializer=initializers.RandomNormal(stddev=0.05),
-                        bias_initializer=initializers.RandomNormal(stddev=0.05))(x_2)
-            x_2 = layers.Dense(18, activation=keras.activations.leaky_relu,
-                        kernel_initializer=initializers.RandomNormal(stddev=0.05),
-                        bias_initializer=initializers.RandomNormal(stddev=0.05))(x_2)
-            output = layers.Dense(1, activation=keras.activations.linear,
-                        kernel_initializer=initializers.RandomNormal(stddev=0.05),
-                        bias_initializer=initializers.RandomNormal(stddev=0.05))(x_2)
-            output_layers.append(output)
-
-        outputs = keras.layers.Concatenate()(output_layers)
-        self.nn_model = keras.Model(inputs=inputs, outputs=outputs, name="nn_model")
+        self.nn_model = models.Sequential([
+            layers.Input(shape=(18,)),
+            layers.Dense(36, activation=keras.activations.leaky_relu,
+                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                         bias_initializer=initializers.RandomNormal(stddev=0.05)),
+            layers.Dense(36, activation=keras.activations.leaky_relu,
+                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                         bias_initializer=initializers.RandomNormal(stddev=0.05)),
+            layers.Dense(18, activation=keras.activations.leaky_relu,
+                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                         bias_initializer=initializers.RandomNormal(stddev=0.05)),
+            layers.Dense(9, activation=keras.activations.linear,
+                         kernel_initializer=initializers.RandomNormal(stddev=0.05),
+                         bias_initializer=initializers.RandomNormal(stddev=0.05))
+        ])
 
     def init_eligiblity_trace(self):
         if not self.use_eligibility_traces:
