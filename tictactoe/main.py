@@ -84,6 +84,7 @@ def main(argv):
         for batch in range(batch_count):
             print(f"training batch: {batch} of {batch_count}")
             (draw, won_ai, lost_ai) = ai_model.train(episodes=10000, epsilon=1.0, validate=True)
+
             if FLAGS.save:
                 ai_model.save_weights(f'models/{FLAGS.savefileprefix}.weights.h5')
 
